@@ -6,9 +6,14 @@ contract("PandAI", function (accounts) {
 
     let pandAI;
     let usdt;
-    let pandaiEarn;
-    let [owner, alice, bob, lp] = accounts;
+    let pandAIEarn;
+    let [owner, alice, bob] = accounts;
     const toBN = web3.utils.toBN;
+
+    const truffleAssert = require('truffle-assertions');
+
+    const adminRoleBytes = "0x0000000000000000000000000000000000000000000000000000000000000000";
+    const updaterRoleBytes = web3.utils.keccak256("UPDATER_ROLE");
 
     before(async () => {
         pandAI = await PandAI.deployed();
@@ -16,13 +21,60 @@ contract("PandAI", function (accounts) {
         pandAIEarn = await PandAIEarn.deployed();
     });
 
-    it("test", async function() {
-        console.log(pandAI.address);
-        console.log(usdt.address);
-        console.log(pandAIEarn.address);
+    describe("Admin Role", () => {
+    
+        it("owner has admin role", async function() {
+            assert.isTrue(await pandAIEarn.hasRole(adminRoleBytes, owner));
+            assert.isFalse(await pandAIEarn.hasRole(adminRoleBytes, alice));
+            assert.isFalse(await pandAIEarn.hasRole(adminRoleBytes, bob));
+        });
 
-        assert.isTrue(true, `tokenBalance of owner should be lowered`);
+        it("admin can add admin", async function() {
+            await pandAIEarn.grantRole(adminRoleBytes, alice, {from: owner});
+            assert.isTrue(await pandAIEarn.hasRole(adminRoleBytes, owner));
+            assert.isTrue(await pandAIEarn.hasRole(adminRoleBytes, alice));
+            assert.isFalse(await pandAIEarn.hasRole(adminRoleBytes, bob));
+        });
+
+        it("admin can remove admin", async function() {
+            await pandAIEarn.revokeRole(adminRoleBytes, alice, {from: owner});
+            assert.isTrue(await pandAIEarn.hasRole(adminRoleBytes, owner));
+            assert.isFalse(await pandAIEarn.hasRole(adminRoleBytes, alice));
+            assert.isFalse(await pandAIEarn.hasRole(adminRoleBytes, bob));
+        });
+
+        it("non-admin cannot edit admin", async function() {
+            await truffleAssert.reverts(pandAIEarn.grantRole(adminRoleBytes, alice, {from: alice}));
+            await truffleAssert.reverts(pandAIEarn.revokeRole(adminRoleBytes, owner, {from: alice}));
+        });
+
     });
+
+    describe("Updater Role", () => {
+
+        it("admin can add updater", async function() {
+            await pandAIEarn.grantRole(updaterRoleBytes, alice, {from: owner});
+            await pandAIEarn.grantRole(updaterRoleBytes, bob, {from: owner});
+            assert.isFalse(await pandAIEarn.hasRole(updaterRoleBytes, owner));
+            assert.isTrue(await pandAIEarn.hasRole(updaterRoleBytes, alice));
+            assert.isTrue(await pandAIEarn.hasRole(updaterRoleBytes, bob));
+        });
+
+        it("admin can remove updater", async function() {
+            await pandAIEarn.revokeRole(updaterRoleBytes, bob, {from: owner});
+            assert.isFalse(await pandAIEarn.hasRole(updaterRoleBytes, owner));
+            assert.isTrue(await pandAIEarn.hasRole(updaterRoleBytes, alice));
+            assert.isFalse(await pandAIEarn.hasRole(updaterRoleBytes, bob));
+        });
+
+        it("non-admin cannot edit updater", async function() {
+            await truffleAssert.reverts(pandAIEarn.grantRole(updaterRoleBytes, bob, {from: alice}));
+            await truffleAssert.reverts(pandAIEarn.revokeRole(updaterRoleBytes, alice, {from: alice}));
+        });
+
+    });
+
+    
 
 
 });
