@@ -1,3 +1,6 @@
+const timeMachine = require('ganache-time-traveler');
+const truffleAssert = require('truffle-assertions');
+
 const PandAI = artifacts.require("PandAI");
 const USDT = artifacts.require("USDT");
 const PandAIEarn = artifacts.require("PandAIEarn");
@@ -10,7 +13,6 @@ contract("PandAI", function (accounts) {
     let [owner, alice, bob] = accounts;
     const toBN = web3.utils.toBN;
 
-    const truffleAssert = require('truffle-assertions');
 
     const adminRoleBytes = "0x0000000000000000000000000000000000000000000000000000000000000000";
     const updaterRoleBytes = web3.utils.keccak256("UPDATER_ROLE");
@@ -19,6 +21,24 @@ contract("PandAI", function (accounts) {
         pandAI = await PandAI.deployed();
         usdt = await USDT.deployed();
         pandAIEarn = await PandAIEarn.deployed();
+    });
+
+    beforeEach(async() => {
+        let snapshot = await timeMachine.takeSnapshot();
+        snapshotId = snapshot['result'];
+    });
+ 
+    describe("Time Machine", () => {
+
+        it("can shift block.timestamp by 60 seconds", async function() {
+            let currTimestamp = (await web3.eth.getBlock("latest")).timestamp;
+            await timeMachine.advanceTimeAndBlock(60);
+            let advancedTimestamp = (await web3.eth.getBlock("latest")).timestamp;
+            assert.equal(advancedTimestamp - currTimestamp, 60);
+            
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
     });
 
     describe("Admin Role", () => {
@@ -73,8 +93,5 @@ contract("PandAI", function (accounts) {
         });
 
     });
-
-    
-
 
 });
