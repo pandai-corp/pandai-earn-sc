@@ -18,9 +18,32 @@ contract PandAIEarn is AccessControl, Pausable {
   address private lpAddress;
 
   bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
+  
+  enum ApprovalLevel{ NotApproved, Approved, Forbidden }
+
+  mapping(address => User) public userMap;
+  struct User {
+    address referral;                     // referral address for this account
+    uint8 approvalLevel;                  // approval level of this user (from ApprovalLevel enum)
+    
+    uint256 deposit;                      // usdt deposit of given user
+    uint256 lastDepositTimestamp;         // last time of usdt deposit
+    
+    uint256 withdrawRequestAmount;        // usdt user request to withdraw
+    uint256 withdrawPossibleTimestamp;    // time when the withdraw of requested amount can be done
+    
+    uint256 dailyClaim;                   // usdt user claimed today
+    uint256 totalClaim;                   // usdt user claimed in total
+    uint256 lastClaimTimestamp;           // last time when user called claim
+
+    uint256 referralDeposit;              // sum of usdt deposits of users bellow this user (in referral program)
+    uint256 referralPendingReward;        // pending referral reward (calculated in referralLastUpdateTimestamp)
+    uint256 referralLastUpdateTimestamp;  // time when referalPendingReward was updated
+  }
 
   event LpAddressChanged(address indexed previousLp, address indexed newLp);
   event TreasuryWithdraw(uint256 amount);
+  event ApprovalLevelChanged(address indexed userAddress, ApprovalLevel previousApprovalLevel, ApprovalLevel newApprovalLevel);
 
   modifier enoughUsdtInTreasury(uint256 amountToWithdraw) {
     require(usdtToken.balanceOf(address(this)) >= amountToWithdraw);
@@ -60,6 +83,14 @@ contract PandAIEarn is AccessControl, Pausable {
     return lpAddress;
   }
 
+  function setUserApprovalLevel(address userAddress, ApprovalLevel newApprovalLevel) public onlyRole(UPDATER_ROLE) {
+    ApprovalLevel oldApprovalLevel = ApprovalLevel(userMap[userAddress].approvalLevel);
+    userMap[userAddress].approvalLevel = uint8(newApprovalLevel);
+    emit ApprovalLevelChanged(userAddress, oldApprovalLevel, newApprovalLevel);
+  }
 
+  function getUser(address userAddress) external view returns (User memory) {
+    return userMap[userAddress];
+  }
 
 }

@@ -10,9 +10,9 @@ contract("PandAI", function (accounts) {
     let pandAI;
     let usdt;
     let pandAIEarn;
+    // owner: deployer, alice: updater, bob: user
     let [owner, alice, bob] = accounts;
     const toBN = web3.utils.toBN;
-
 
     const adminRoleBytes = "0x0000000000000000000000000000000000000000000000000000000000000000";
     const updaterRoleBytes = web3.utils.keccak256("UPDATER_ROLE");
@@ -90,6 +90,26 @@ contract("PandAI", function (accounts) {
         it("non-admin cannot edit updater", async function() {
             await truffleAssert.reverts(pandAIEarn.grantRole(updaterRoleBytes, bob, {from: alice}));
             await truffleAssert.reverts(pandAIEarn.revokeRole(updaterRoleBytes, alice, {from: alice}));
+        });
+
+    });
+
+    describe("Setting Approval Level", () => {
+
+        it("only updater can change approval level", async function() {
+            await truffleAssert.reverts(pandAIEarn.setUserApprovalLevel(bob, 1, {from: owner}));
+            await truffleAssert.reverts(pandAIEarn.setUserApprovalLevel(bob, 1, {from: bob}));
+            
+            await pandAIEarn.setUserApprovalLevel(bob, 1, {from: alice});
+            let userBob = await pandAIEarn.getUser(bob);
+            assert.equal(userBob.approvalLevel, 1);
+        });
+
+        it("only approval:0,1,2 can be set", async function() {
+            await pandAIEarn.setUserApprovalLevel(bob, 0, {from: alice});
+            await pandAIEarn.setUserApprovalLevel(bob, 1, {from: alice});
+            await pandAIEarn.setUserApprovalLevel(bob, 2, {from: alice});
+            await truffleAssert.reverts(pandAIEarn.setUserApprovalLevel(bob, 3, {from: alice}));
         });
 
     });
