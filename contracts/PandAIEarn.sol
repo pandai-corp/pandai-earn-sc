@@ -6,11 +6,11 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol"; 
 
 interface IERC20Extended is IERC20 {
-    function decimals() external view returns (uint8);
+  function decimals() external view returns (uint8);
 }
 
 interface IERC20Burnable is IERC20Extended {
-    function burnFrom(address account, uint amount) external;
+  function burnFrom(address account, uint amount) external;
 }
 
 contract PandAIEarn is AccessControl, Pausable {
@@ -24,7 +24,11 @@ contract PandAIEarn is AccessControl, Pausable {
   address public constant DEFAULT_REFERRAL = 0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1;
 
   uint public constant WITHDRAW_PROCESSING_TIME = 14 days;
-  uint public constant DAILY_CLAIM_LIMIT = 1000;
+  uint public constant INTEREST_PERIOD = 30 days;
+  uint public constant DAILY_CLAIM_LIMIT = 1_000;
+  uint public constant MIRIAD = 10_000;
+  uint public constant REFERRAL_MONTHLY_GAIN_BPS = 20;
+  uint public constant REFERRAL_CLAIM_FEE_BPS = 1000;
   
   enum ApprovalLevel{ NotApproved, Approved, Forbidden }
 
@@ -37,7 +41,7 @@ contract PandAIEarn is AccessControl, Pausable {
     uint claimFeeBps;
 
     uint lockupSeconds;
-    uint lockupBreachFee;
+    uint lockupBreachFeeBps;
   }
 
   mapping(address => User) public userMap;
@@ -62,14 +66,19 @@ contract PandAIEarn is AccessControl, Pausable {
 
   struct UserCalculated {
     uint8 tier;
-    // TODO
+
+    uint userPendingReward;
+    uint userPendingPandaiBurn;
+
+    uint referralPendingReward;
+    uint referralPendingPandaiBurn;
   }
 
   event TreasuryWithdraw(uint usdtAmount);
   event TreasuryDeposit(uint usdtAmount);
   event LpAddressChanged(address indexed previousLp, address indexed newLp);
   event ApprovalLevelChanged(address indexed userAddress, ApprovalLevel previousApprovalLevel, ApprovalLevel newApprovalLevel);
-  
+
   event UserDeposited(address indexed userAddress, uint usdtAmount);
   event UserRequestedWithdraw(address indexed userAddress, uint usdtAmount);
   event UserWithdrew(address indexed userAddress, uint usdtAmount);
@@ -81,9 +90,9 @@ contract PandAIEarn is AccessControl, Pausable {
   event UserRewardClaimed(address indexed userAddress, uint usdtAmount);
   event ReferralRewardClaimed(address indexed userAddress, uint usdtAmount);
 
-  constructor(address _usdtTokenAddress, address _pandaiTokenAddress) {
-    usdtToken = IERC20Extended(_usdtTokenAddress);
-    pandaiToken = IERC20Burnable(_pandaiTokenAddress);
+  constructor(address usdtTokenAddress, address pandaiTokenAddress) {
+    usdtToken = IERC20Extended(usdtTokenAddress);
+    pandaiToken = IERC20Burnable(pandaiTokenAddress);
 
     tierMap[1] = Tier(  100, false, 100, 1000,   7 days, 4000);
     tierMap[2] = Tier(  500, false, 125,  900,  30 days, 3500);
@@ -97,11 +106,16 @@ contract PandAIEarn is AccessControl, Pausable {
   function getUser(address userAddress) external view returns (User memory stored, UserCalculated memory calculated) {    
     require(userAddress != address(0));    
     uint8 tier = getUserTier(userAddress);
+    uint userReward = getUserReward(userAddress, tier);
+    uint referralReward = userMap[userAddress].referralPendingReward + getNewReferralReward(userAddress);
     return (
       userMap[userAddress],
       UserCalculated(
-        tier
-        // TODO
+        tier,
+        userReward,
+        getUserRewardClaimFeePandai(userReward, tier),
+        referralReward,
+        getReferralRewardClaimFeePandai(referralReward)
       )
     );
   }
@@ -152,8 +166,8 @@ contract PandAIEarn is AccessControl, Pausable {
     emit ApprovalLevelChanged(userAddress, oldApprovalLevel, newApprovalLevel);
   }
 
-  function deposit(uint usdtAmount) external {
-    deposit(usdtAmount, DEFAULT_REFERRAL);
+  function deposit(uint usdtDepositAmount) external {
+    deposit(usdtDepositAmount, DEFAULT_REFERRAL);
   }
 
   function deposit(uint usdtDepositAmount, address referralAddress) public whenNotPaused {
@@ -161,33 +175,12 @@ contract PandAIEarn is AccessControl, Pausable {
     require(referralAddress != address(0));
     require(referralAddress != msg.sender);
     
-    uint8 tier = getUserTier(msg.sender);
-    uint claimUsdt = getUserReward(msg.sender, tier);
-    require(canClaim(msg.sender, claimUsdt));
-    
-    uint claimFeePandai = getPandaiWorthOf(getUserRewardClaimFeeUsdt(claimUsdt, tier));
-    require(pandaiToken.balanceOf(msg.sender) >= claimFeePandai);
-    require(pandaiToken.allowance(msg.sender, address(this)) >= claimFeePandai);
-    if (claimUsdt < usdtDepositAmount) {
-      require(usdtToken.balanceOf(msg.sender) >= usdtDepositAmount - claimUsdt);
-      require(usdtToken.allowance(msg.sender, address(this)) >= usdtDepositAmount - claimUsdt);
-    } else if (claimUsdt > usdtDepositAmount) {
-      require(usdtToken.balanceOf(address(this)) >= claimUsdt - usdtDepositAmount);
-    }
-
     if (userMap[msg.sender].referral == address(0)) {
       userMap[msg.sender].referral = referralAddress;
     }
 
     userMap[msg.sender].deposit += usdtDepositAmount;
     userMap[msg.sender].lastDepositTimestamp = block.timestamp;
-
-    if (isToday(userMap[msg.sender].lastClaimTimestamp)) {
-      userMap[msg.sender].dailyClaim += claimUsdt;
-    } else {
-      userMap[msg.sender].dailyClaim = claimUsdt;
-    }
-    userMap[msg.sender].totalClaim += claimUsdt;
     userMap[msg.sender].lastClaimTimestamp = block.timestamp;
     
     uint newReferralReward = getNewReferralReward(userMap[msg.sender].referral);
@@ -195,16 +188,8 @@ contract PandAIEarn is AccessControl, Pausable {
     userMap[userMap[msg.sender].referral].referralPendingReward += newReferralReward;
     userMap[userMap[msg.sender].referral].referralLastUpdateTimestamp = block.timestamp;
     
-    if (claimUsdt < usdtDepositAmount) {
-      usdtToken.transferFrom(msg.sender, address(this), usdtDepositAmount - claimUsdt);
-    } else if (claimUsdt > usdtDepositAmount) {
-      usdtToken.transfer(msg.sender, claimUsdt - usdtDepositAmount);
-    }
+    usdtToken.transferFrom(msg.sender, address(this), usdtDepositAmount);
     emit UserDeposited(msg.sender, usdtDepositAmount);
-    emit UserRewardClaimed(msg.sender, claimUsdt);
-    
-    pandaiToken.burnFrom(msg.sender, claimFeePandai);
-    emit PandaiBurnedForUserRewardClaim(msg.sender, claimFeePandai);
   }
 
   function requestWithdraw(uint usdtWithdrawAmount) public {
@@ -215,10 +200,8 @@ contract PandAIEarn is AccessControl, Pausable {
 
     uint withdrawFeePandai;
     uint8 tier = getUserTier(msg.sender);
-    if (getWithdrawFreeTimestamp(msg.sender, tier) > block.timestamp) {
-      uint withdrawFeeBps = getWithdrawFeeBps(tier);
-      uint withdrawFeeUsdt = usdtWithdrawAmount * withdrawFeeBps / 10_000;
-      withdrawFeePandai = getPandaiWorthOf(withdrawFeeUsdt);
+    if (userMap[msg.sender].lastDepositTimestamp + tierMap[tier].lockupSeconds > block.timestamp) {
+      withdrawFeePandai = getPandaiWorthOf(usdtWithdrawAmount * tierMap[tier].lockupBreachFeeBps / MIRIAD);
 
       require(pandaiToken.balanceOf(msg.sender) >= withdrawFeePandai);
       require(pandaiToken.allowance(msg.sender, address(this)) >= withdrawFeePandai);
@@ -262,7 +245,7 @@ contract PandAIEarn is AccessControl, Pausable {
     uint userClaimUsdt = getUserReward(msg.sender, tier);
     require(canClaim(msg.sender, userClaimUsdt));
     
-    uint userClaimFeePandai = getPandaiWorthOf(getUserRewardClaimFeeUsdt(userClaimUsdt, tier));
+    uint userClaimFeePandai = getUserRewardClaimFeePandai(userClaimUsdt, tier);
     require(pandaiToken.balanceOf(msg.sender) >= userClaimFeePandai);
     require(pandaiToken.allowance(msg.sender, address(this)) >= userClaimFeePandai);
 
@@ -285,7 +268,7 @@ contract PandAIEarn is AccessControl, Pausable {
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
     require(canClaim(msg.sender, referralClaimUsdt));
     
-    uint referralClaimFeePandai = getPandaiWorthOf(getReferralRewardClaimFeeUsdt(referralClaimUsdt));
+    uint referralClaimFeePandai = getReferralRewardClaimFeePandai(referralClaimUsdt);
     require(pandaiToken.balanceOf(msg.sender) >= referralClaimFeePandai);
     require(pandaiToken.allowance(msg.sender, address(this)) >= referralClaimFeePandai);
 
@@ -312,8 +295,8 @@ contract PandAIEarn is AccessControl, Pausable {
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
     require(canClaim(msg.sender, userClaimUsdt + referralClaimUsdt));
     
-    uint userClaimFeePandai = getPandaiWorthOf(getUserRewardClaimFeeUsdt(userClaimUsdt, tier));
-    uint referralClaimFeePandai = getPandaiWorthOf(getReferralRewardClaimFeeUsdt(referralClaimUsdt));
+    uint userClaimFeePandai = getUserRewardClaimFeePandai(userClaimUsdt, tier);
+    uint referralClaimFeePandai = getReferralRewardClaimFeePandai(referralClaimUsdt);
     require(pandaiToken.balanceOf(msg.sender) >= userClaimFeePandai + referralClaimFeePandai);
     require(pandaiToken.allowance(msg.sender, address(this)) >= userClaimFeePandai + referralClaimFeePandai);
 
@@ -344,11 +327,10 @@ contract PandAIEarn is AccessControl, Pausable {
     } else if (approvalLevel == ApprovalLevel.Forbidden) {
       return false;
     }
-    if (!isToday(userMap[userAddress].lastClaimTimestamp)) {
-      return claimUsdt * (10 ** usdtToken.decimals()) < DAILY_CLAIM_LIMIT;
-    } else {
-      return userMap[userAddress].dailyClaim + claimUsdt * (10 ** usdtToken.decimals()) < DAILY_CLAIM_LIMIT;
+    if (isToday(userMap[userAddress].lastClaimTimestamp)) {
+      claimUsdt += userMap[userAddress].dailyClaim;
     }
+    return claimUsdt / (10 ** usdtToken.decimals()) < DAILY_CLAIM_LIMIT;
   }
 
   function isToday(uint timestamp) private view returns (bool) {
@@ -374,33 +356,28 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function getUserReward(address userAddress, uint8 userTier) private view returns (uint) {
-    // TODO
-    return 0;
+    uint g = tierMap[userTier].monthlyGainBps;
+    uint t = block.timestamp - userMap[userAddress].lastClaimTimestamp;
+    uint f1 = userMap[userAddress].deposit * g * t / MIRIAD / INTEREST_PERIOD;
+    if (!tierMap[userTier].compoundInterest) {
+      return f1;
+    }
+    uint f2 = f1 * g * t / MIRIAD / INTEREST_PERIOD / 2;
+    uint f3 = f2 * g * t / MIRIAD / INTEREST_PERIOD / 3;
+    return f1 + f2 + f3;
   }
 
-  function getUserRewardClaimFeeUsdt(uint userReward, uint8 userTier) private view returns (uint) {
-    // TODO
-    return 0;
+  function getUserRewardClaimFeePandai(uint userRewardUsdt, uint8 userTier) private view returns (uint) {
+    return getPandaiWorthOf(userRewardUsdt * tierMap[userTier].claimFeeBps / MIRIAD);
   }
 
   function getNewReferralReward(address userAddress) private view returns (uint) {
-    // TODO
-    return 0;
+    uint t = block.timestamp - userMap[userAddress].referralLastUpdateTimestamp;
+    return userMap[userAddress].referralDeposit * REFERRAL_MONTHLY_GAIN_BPS * t / MIRIAD / INTEREST_PERIOD;
   }
 
-  function getReferralRewardClaimFeeUsdt(uint referralReward) private view returns (uint) {
-    // TODO
-    return 0;
-  }
-
-  function getWithdrawFeeBps(uint8 userTier) private view returns (uint) {
-    // TODO
-    return 0;
-  }
-
-  function getWithdrawFreeTimestamp(address userAddress, uint8 userTier) private view returns (uint) {
-    // TODO
-    return 0;    
+  function getReferralRewardClaimFeePandai(uint referralRewardUsdt) private view returns (uint) {
+    return getPandaiWorthOf(referralRewardUsdt * REFERRAL_CLAIM_FEE_BPS / MIRIAD);
   }
 
 }
