@@ -65,17 +65,21 @@ contract PandAIEarn is AccessControl, Pausable {
     // TODO
   }
 
+  event TreasuryWithdraw(uint256 usdtAmount);
+  event TreasuryDeposit(uint256 usdtAmount);
   event LpAddressChanged(address indexed previousLp, address indexed newLp);
-  event TreasuryWithdraw(uint256 amount);
   event ApprovalLevelChanged(address indexed userAddress, ApprovalLevel previousApprovalLevel, ApprovalLevel newApprovalLevel);
-  event UsdtDeposited(address indexed userAddress, uint256 amount);
-  event UserRewardPandaiBurned(address indexed userAddress, uint256 amount);
-  event UserRewardClaimed(address indexed userAddress, uint256 amount);
+  
+  event UserDeposited(address indexed userAddress, uint256 usdtAmount);
+  event UserRequestedWithdraw(address indexed userAddress, uint256 usdtAmount);
+  event UserWithdrew(address indexed userAddress, uint256 usdtAmount);
 
-  modifier enoughUsdtInTreasury(uint256 amountToWithdraw) {
-    require(usdtToken.balanceOf(address(this)) >= amountToWithdraw, "not enough USDT in treasury");
-    _;
-  }
+  event PandaiBurnedForUserRewardClaim(address indexed userAddress, uint256 pandaiAmount);
+  event PandaiBurnedForReferralRewardClaim(address indexed userAddress, uint256 pandaiAmount);
+  event PandaiBurnedForWithdrawFee(address indexed userAddress, uint256 pandaiAmount);
+  
+  event UserRewardClaimed(address indexed userAddress, uint256 usdtAmount);
+  event ReferralRewardClaimed(address indexed userAddress, uint256 usdtAmount);
 
   constructor(address _usdtTokenAddress, address _pandaiTokenAddress) {
     usdtToken = IERC20Extended(_usdtTokenAddress);
@@ -108,14 +112,21 @@ contract PandAIEarn is AccessControl, Pausable {
     emit LpAddressChanged(oldLpAddress, newLpAddress);
   }
 
-  function withdrawTreasury(uint256 usdtAmount) external onlyRole(DEFAULT_ADMIN_ROLE) enoughUsdtInTreasury(usdtAmount) {
+  function withdrawTreasury(uint256 usdtAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    require(usdtToken.balanceOf(address(this)) >= usdtAmount, "not enough USDT in treasury");
     usdtToken.transfer(msg.sender, usdtAmount);
     emit TreasuryWithdraw(usdtAmount);
   }
 
+  function depositTreasury(uint256 usdtAmount) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    require(usdtToken.balanceOf(msg.sender) >= usdtAmount, "not enough USDT");
+    require(usdtToken.allowance(msg.sender, address(this)) >= usdtAmount, "USDT allowance too small");
+    usdtToken.transferFrom(msg.sender, address(this), usdtAmount);
+    emit TreasuryDeposit(usdtAmount);
+  }
+
   function getUser(address userAddress) external view returns (User memory stored, UserCalculated memory calculated) {    
-    require(userAddress != address(0), "userAddress cannot be zero address");
-    
+    require(userAddress != address(0), "userAddress cannot be zero address");    
     uint8 tier = getUserTier(userAddress);
     return (
       userMap[userAddress],
@@ -192,9 +203,59 @@ contract PandAIEarn is AccessControl, Pausable {
     }
     pandaiToken.burnFrom(msg.sender, claimFeePandai);
 
-    emit UsdtDeposited(msg.sender, usdtDepositAmount);
-    emit UserRewardPandaiBurned(msg.sender, claimFeePandai);
+    emit UserDeposited(msg.sender, usdtDepositAmount);
+    emit PandaiBurnedForUserRewardClaim(msg.sender, claimFeePandai);
     emit UserRewardClaimed(msg.sender, claimUsdt);
+  }
+
+  function requestWithdraw(uint256 usdtWithdrawAmount) public {
+    require(usdtWithdrawAmount <= userMap[msg.sender].deposit, "withdraw amount bigger than deposit");
+    if (usdtWithdrawAmount < userMap[msg.sender].deposit) {
+      require(userMap[msg.sender].deposit - usdtWithdrawAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "remaining deposit must be tier1 at least");
+    }
+
+    uint256 withdrawFeePandai;
+    uint8 tier = getUserTier(msg.sender);
+    if (getWithdrawFreeTimestamp(msg.sender, tier) > block.timestamp) {
+      uint256 withdrawFeeBps = getWithdrawFeeBps(tier);
+      uint256 withdrawFeeUsdt = usdtWithdrawAmount * withdrawFeeBps / 10_000;
+      withdrawFeePandai = getPandaiWorthOf(withdrawFeeUsdt);
+
+      require(pandaiToken.balanceOf(msg.sender) >= withdrawFeePandai, "not enough PANDAI");
+      require(pandaiToken.allowance(msg.sender, address(this)) >= withdrawFeePandai, "PANDAI allowance too small");
+    }
+
+    userMap[msg.sender].deposit -= usdtWithdrawAmount;
+    userMap[msg.sender].withdrawRequestAmount += usdtWithdrawAmount;
+    userMap[msg.sender].withdrawPossibleTimestamp = block.timestamp + WITHDRAW_PROCESSING_TIME;
+    
+    uint256 newReferralReward = getNewReferralReward(userMap[msg.sender].referral);
+    if (userMap[userMap[msg.sender].referral].referralDeposit >= usdtWithdrawAmount) {
+      userMap[userMap[msg.sender].referral].referralDeposit -= usdtWithdrawAmount;
+    } else {
+      userMap[userMap[msg.sender].referral].referralDeposit = 0;
+    }
+    userMap[userMap[msg.sender].referral].referralPendingReward += newReferralReward;
+    userMap[userMap[msg.sender].referral].referralLastUpdateTimestamp = block.timestamp;
+
+    if (withdrawFeePandai > 0) {
+      pandaiToken.burnFrom(msg.sender, withdrawFeePandai);
+      emit PandaiBurnedForWithdrawFee(msg.sender, withdrawFeePandai);
+    }
+    emit UserRequestedWithdraw(msg.sender, usdtWithdrawAmount);
+  }
+
+  function withdraw() public {
+    require(userMap[msg.sender].withdrawRequestAmount > 0, "requested amount must be positive");
+    require(userMap[msg.sender].withdrawRequestAmount <= usdtToken.balanceOf(address(this)), "not enough USDT in treasury");
+    require(userMap[msg.sender].withdrawPossibleTimestamp <= block.timestamp, "withdraw not possible yet");
+
+    uint256 usdtWithdrawAmount = userMap[msg.sender].withdrawRequestAmount;
+    userMap[msg.sender].withdrawRequestAmount = 0;
+    userMap[msg.sender].withdrawPossibleTimestamp = 0;
+
+    usdtToken.transfer(msg.sender, usdtWithdrawAmount);
+    emit UserWithdrew(msg.sender, usdtWithdrawAmount);
   }
 
   function canClaim(address userAddress, uint256 claimUsdt) private view returns (bool) {
@@ -253,7 +314,7 @@ contract PandAIEarn is AccessControl, Pausable {
     return 0;
   }
 
-  function getWithdrawFeeBps(address userAddress) private view returns (uint256) {
+  function getWithdrawFeeBps(uint8 userTier) private view returns (uint256) {
     // TODO
     return 0;
   }
