@@ -5,21 +5,40 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol"; 
 
-interface IERC20Burnable is IERC20 {
-    function burn(uint256 amount) external;
+interface IERC20Extended is IERC20{
+    function decimals() external view returns (uint8);
+}
+
+interface IERC20Burnable is IERC20Extended {
     function burnFrom(address account, uint256 amount) external;
 }
 
 contract PandAIEarn is AccessControl, Pausable {
 
-  IERC20 private usdtToken;
+  IERC20Extended private usdtToken;
   IERC20Burnable private pandaiToken;
   
   address private lpAddress;
 
   bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
+  address public constant DEFAULT_REFERRAL = 0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1;
+
+  uint256 public constant WITHDRAW_PROCESSING_TIME = 14 days;
+  uint256 public constant DAILY_CLAIM_LIMIT = 1000;
   
   enum ApprovalLevel{ NotApproved, Approved, Forbidden }
+
+  mapping(uint8 => Tier) public tierMap;
+  struct Tier {
+    uint256 minDeposit;
+    bool compoundInterest;
+    
+    uint256 monthlyGainBps;
+    uint256 claimFeeBps;
+
+    uint256 lockupSeconds;
+    uint256 lockupBreachFee;
+  }
 
   mapping(address => User) public userMap;
   struct User {
@@ -41,30 +60,45 @@ contract PandAIEarn is AccessControl, Pausable {
     uint256 referralLastUpdateTimestamp;  // time when referalPendingReward was updated
   }
 
+  struct UserCalculated {
+    uint8 tier;
+    // TODO
+  }
+
   event LpAddressChanged(address indexed previousLp, address indexed newLp);
   event TreasuryWithdraw(uint256 amount);
   event ApprovalLevelChanged(address indexed userAddress, ApprovalLevel previousApprovalLevel, ApprovalLevel newApprovalLevel);
+  event UsdtDeposited(address indexed userAddress, uint256 amount);
+  event UserRewardPandaiBurned(address indexed userAddress, uint256 amount);
+  event UserRewardClaimed(address indexed userAddress, uint256 amount);
 
   modifier enoughUsdtInTreasury(uint256 amountToWithdraw) {
-    require(usdtToken.balanceOf(address(this)) >= amountToWithdraw);
+    require(usdtToken.balanceOf(address(this)) >= amountToWithdraw, "not enough USDT in treasury");
     _;
   }
 
   constructor(address _usdtTokenAddress, address _pandaiTokenAddress) {
-    usdtToken = IERC20(_usdtTokenAddress);
+    usdtToken = IERC20Extended(_usdtTokenAddress);
     pandaiToken = IERC20Burnable(_pandaiTokenAddress);
+
+    tierMap[1] = Tier(  100, false, 100, 1000,   7 days, 4000);
+    tierMap[2] = Tier(  500, false, 125,  900,  30 days, 3500);
+    tierMap[3] = Tier( 1000, false, 150,  800,  60 days, 3000);
+    tierMap[4] = Tier( 5000,  true, 180,  650,  90 days, 2500);
+    tierMap[5] = Tier(10000,  true, 220,  500, 180 days, 2000);
+
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
-  function pause() public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
     _pause();
   }
 
-  function unpause() public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
     _unpause();
   }
 
-  function setLpAddress(address newLpAddress) public onlyRole(DEFAULT_ADMIN_ROLE) {
+  function setLpAddress(address newLpAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
     require(lpAddress != address(0), "lpAddress cannot be zero address");
     require(usdtToken.balanceOf(lpAddress) > 0, "No USDT on LP");
     require(pandaiToken.balanceOf(lpAddress) > 0, "No PANDAI on LP");
@@ -74,23 +108,159 @@ contract PandAIEarn is AccessControl, Pausable {
     emit LpAddressChanged(oldLpAddress, newLpAddress);
   }
 
-  function withdrawTreasury(uint256 amount) public onlyRole(DEFAULT_ADMIN_ROLE) enoughUsdtInTreasury(amount) {
-    usdtToken.transfer(msg.sender, amount);
-    emit TreasuryWithdraw(amount);
+  function withdrawTreasury(uint256 usdtAmount) external onlyRole(DEFAULT_ADMIN_ROLE) enoughUsdtInTreasury(usdtAmount) {
+    usdtToken.transfer(msg.sender, usdtAmount);
+    emit TreasuryWithdraw(usdtAmount);
+  }
+
+  function getUser(address userAddress) external view returns (User memory stored, UserCalculated memory calculated) {    
+    require(userAddress != address(0), "userAddress cannot be zero address");
+    
+    uint8 tier = getUserTier(userAddress);
+    return (
+      userMap[userAddress],
+      UserCalculated(
+        tier
+        // TODO
+      )
+    );
+  }
+
+  function getTier(uint8 tier) external view returns (Tier memory) {
+    require(tier >= 1 && tier <= 5, "tier out of range");
+    return tierMap[tier];
   }
 
   function getLpAddress() external view returns (address) {
     return lpAddress;
   }
 
-  function setUserApprovalLevel(address userAddress, ApprovalLevel newApprovalLevel) public onlyRole(UPDATER_ROLE) {
+  function setUserApprovalLevel(address userAddress, ApprovalLevel newApprovalLevel) external onlyRole(UPDATER_ROLE) {
     ApprovalLevel oldApprovalLevel = ApprovalLevel(userMap[userAddress].approvalLevel);
     userMap[userAddress].approvalLevel = uint8(newApprovalLevel);
     emit ApprovalLevelChanged(userAddress, oldApprovalLevel, newApprovalLevel);
   }
 
-  function getUser(address userAddress) external view returns (User memory) {
-    return userMap[userAddress];
+  function deposit(uint256 usdtAmount) external {
+    deposit(usdtAmount, DEFAULT_REFERRAL);
+  }
+
+  function deposit(uint256 usdtDepositAmount, address referralAddress) public whenNotPaused {
+    require(usdtDepositAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "deposit amount too small");
+    require(referralAddress != address(0), "referralAddress cannot be zero address");
+    require(referralAddress != msg.sender, "referralAddress cannot be sender");
+    
+    uint8 tier = getUserTier(msg.sender);
+    uint256 claimUsdt = getUserReward(msg.sender, tier);
+    require(canClaim(msg.sender, claimUsdt), "daily limit for claim reached");
+    
+    uint256 claimFeeUsdt = getUserRewardClaimFeeUsdt(claimUsdt, tier);
+    uint256 claimFeePandai = getPandaiWorthOf(claimFeeUsdt);
+    require(pandaiToken.balanceOf(msg.sender) >= claimFeePandai, "not enough PANDAI");
+    require(pandaiToken.allowance(msg.sender, address(this)) >= claimFeePandai, "PANDAI allowance too small");
+    if (claimUsdt < usdtDepositAmount) {
+      require(usdtToken.balanceOf(msg.sender) >= usdtDepositAmount - claimUsdt, "not enough USDT");
+      require(usdtToken.allowance(msg.sender, address(this)) >= usdtDepositAmount - claimUsdt, "USDT allowance too small");
+    } else if (claimUsdt > usdtDepositAmount) {
+      require(usdtToken.balanceOf(address(this)) >= claimUsdt - usdtDepositAmount, "not enough USDT in treasury");
+    }
+
+    if (userMap[msg.sender].referral == address(0)) {
+      userMap[msg.sender].referral = referralAddress;
+    }
+
+    userMap[msg.sender].deposit += usdtDepositAmount;
+    userMap[msg.sender].lastDepositTimestamp = block.timestamp;
+
+    if (isToday(userMap[msg.sender].lastClaimTimestamp)) {
+      userMap[msg.sender].dailyClaim += claimUsdt;
+    } else {
+      userMap[msg.sender].dailyClaim = claimUsdt;
+    }
+    userMap[msg.sender].totalClaim += claimUsdt;
+    userMap[msg.sender].lastClaimTimestamp = block.timestamp;
+    
+    uint256 newReferralReward = getNewReferralReward(userMap[msg.sender].referral);
+    userMap[userMap[msg.sender].referral].referralDeposit += usdtDepositAmount;
+    userMap[userMap[msg.sender].referral].referralPendingReward += newReferralReward;
+    userMap[userMap[msg.sender].referral].referralLastUpdateTimestamp = block.timestamp;
+    
+    if (claimUsdt < usdtDepositAmount) {
+      usdtToken.transferFrom(msg.sender, address(this), usdtDepositAmount - claimUsdt);
+    } else if (claimUsdt > usdtDepositAmount) {
+      usdtToken.transfer(msg.sender, claimUsdt - usdtDepositAmount);
+    }
+    pandaiToken.burnFrom(msg.sender, claimFeePandai);
+
+    emit UsdtDeposited(msg.sender, usdtDepositAmount);
+    emit UserRewardPandaiBurned(msg.sender, claimFeePandai);
+    emit UserRewardClaimed(msg.sender, claimUsdt);
+  }
+
+  function canClaim(address userAddress, uint256 claimUsdt) private view returns (bool) {
+    ApprovalLevel approvalLevel = ApprovalLevel(userMap[userAddress].approvalLevel);
+    if (approvalLevel == ApprovalLevel.Approved) {
+      return true;
+    } else if (approvalLevel == ApprovalLevel.Forbidden) {
+      return false;
+    }
+    if (!isToday(userMap[userAddress].lastClaimTimestamp)) {
+      return claimUsdt * (10 ** usdtToken.decimals()) < DAILY_CLAIM_LIMIT;
+    } else {
+      return userMap[userAddress].dailyClaim + claimUsdt * (10 ** usdtToken.decimals()) < DAILY_CLAIM_LIMIT;
+    }
+  }
+
+  function isToday(uint256 timestamp) private view returns (bool) {
+    return block.timestamp / 1 days == timestamp / 1 days;
+  }
+
+  function getPandaiWorthOf(uint256 usdtAmount) private view returns (uint256) {
+    uint256 usdtInLp = usdtToken.balanceOf(lpAddress);
+    uint256 pandaiInLp = pandaiToken.balanceOf(lpAddress);
+    require (usdtInLp * pandaiInLp > 0, "not enough tokens in Lp");
+
+    return usdtAmount * pandaiInLp / usdtInLp;
+  }
+
+  function getUserTier(address userAddress) private view returns (uint8) {
+    uint256 userDeposit = userMap[userAddress].deposit / (10 ** usdtToken.decimals());
+    for (uint8 i = 5; i >= 1; i--) {
+      if (userDeposit >= tierMap[i].minDeposit) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  function getUserReward(address userAddress, uint8 userTier) private view returns (uint256) {
+    // TODO
+    return 0;
+  }
+
+  function getUserRewardClaimFeeUsdt(uint256 userReward, uint8 userTier) private view returns (uint256) {
+    // TODO
+    return 0;
+  }
+
+  function getNewReferralReward(address userAddress) private view returns (uint256) {
+    // TODO
+    return 0;
+  }
+
+  function getReferralRewardClaimFeeUsdt(uint256 referralReward) private view returns (uint256) {
+    // TODO
+    return 0;
+  }
+
+  function getWithdrawFeeBps(address userAddress) private view returns (uint256) {
+    // TODO
+    return 0;
+  }
+
+  function getWithdrawFreeTimestamp(address userAddress, uint8 userTier) private view returns (uint256) {
+    // TODO
+    return 0;    
   }
 
 }
