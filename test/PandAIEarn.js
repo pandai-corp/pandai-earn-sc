@@ -10,7 +10,7 @@ contract("PandAI", function (accounts) {
     let pandAI;
     let usdt;
     let pandAIEarn;
-    // owner: deployer, alice: updater, bob: user
+    // owner: deployer, alice: updater, bob and others: user
     let [owner, alice, bob] = accounts;
     const toBN = web3.utils.toBN;
 
@@ -30,13 +30,15 @@ contract("PandAI", function (accounts) {
  
     describe("Time Machine", () => {
 
-        it("can shift block.timestamp by 60 seconds", async function() {
-            let currTimestamp = (await web3.eth.getBlock("latest")).timestamp;
+        it("can shift block.timestamp by 60 seconds and revert", async function() {
+            let startTimestamp = (await web3.eth.getBlock("latest")).timestamp;
             await timeMachine.advanceTimeAndBlock(60);
             let advancedTimestamp = (await web3.eth.getBlock("latest")).timestamp;
-            assert.equal(advancedTimestamp - currTimestamp, 60);
+            assert.equal(advancedTimestamp - startTimestamp, 60);
             
             await timeMachine.revertToSnapshot(snapshotId);
+            let revertedTimestamp = (await web3.eth.getBlock("latest")).timestamp;
+            assert.equal(revertedTimestamp, startTimestamp);
         });
 
     });
@@ -102,7 +104,8 @@ contract("PandAI", function (accounts) {
             
             await pandAIEarn.setUserApprovalLevel(bob, 1, {from: alice});
             let userBob = await pandAIEarn.getUser(bob);
-            assert.equal(userBob.approvalLevel, 1);
+            console.log(userBob);
+            assert.equal(userBob.stored.approvalLevel, 1);
         });
 
         it("only approval:0,1,2 can be set", async function() {
