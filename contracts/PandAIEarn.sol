@@ -5,7 +5,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol"; 
 
-interface IERC20Extended is IERC20{
+interface IERC20Extended is IERC20 {
     function decimals() external view returns (uint8);
 }
 
@@ -94,6 +94,27 @@ contract PandAIEarn is AccessControl, Pausable {
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
 
+  function getUser(address userAddress) external view returns (User memory stored, UserCalculated memory calculated) {    
+    require(userAddress != address(0), "userAddress cannot be zero address");    
+    uint8 tier = getUserTier(userAddress);
+    return (
+      userMap[userAddress],
+      UserCalculated(
+        tier
+        // TODO
+      )
+    );
+  }
+
+  function getTier(uint8 tier) external view returns (Tier memory) {
+    require(tier >= 1 && tier <= 5, "tier out of range");
+    return tierMap[tier];
+  }
+
+  function getLpAddress() external view returns (address) {
+    return lpAddress;
+  }
+
   function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
     _pause();
   }
@@ -123,27 +144,6 @@ contract PandAIEarn is AccessControl, Pausable {
     require(usdtToken.allowance(msg.sender, address(this)) >= usdtAmount, "USDT allowance too small");
     usdtToken.transferFrom(msg.sender, address(this), usdtAmount);
     emit TreasuryDeposit(usdtAmount);
-  }
-
-  function getUser(address userAddress) external view returns (User memory stored, UserCalculated memory calculated) {    
-    require(userAddress != address(0), "userAddress cannot be zero address");    
-    uint8 tier = getUserTier(userAddress);
-    return (
-      userMap[userAddress],
-      UserCalculated(
-        tier
-        // TODO
-      )
-    );
-  }
-
-  function getTier(uint8 tier) external view returns (Tier memory) {
-    require(tier >= 1 && tier <= 5, "tier out of range");
-    return tierMap[tier];
-  }
-
-  function getLpAddress() external view returns (address) {
-    return lpAddress;
   }
 
   function setUserApprovalLevel(address userAddress, ApprovalLevel newApprovalLevel) external onlyRole(UPDATER_ROLE) {
@@ -201,11 +201,11 @@ contract PandAIEarn is AccessControl, Pausable {
     } else if (claimUsdt > usdtDepositAmount) {
       usdtToken.transfer(msg.sender, claimUsdt - usdtDepositAmount);
     }
-    pandaiToken.burnFrom(msg.sender, claimFeePandai);
-
     emit UserDeposited(msg.sender, usdtDepositAmount);
-    emit PandaiBurnedForUserRewardClaim(msg.sender, claimFeePandai);
     emit UserRewardClaimed(msg.sender, claimUsdt);
+    
+    pandaiToken.burnFrom(msg.sender, claimFeePandai);
+    emit PandaiBurnedForUserRewardClaim(msg.sender, claimFeePandai);
   }
 
   function requestWithdraw(uint256 usdtWithdrawAmount) public {
@@ -256,6 +256,92 @@ contract PandAIEarn is AccessControl, Pausable {
 
     usdtToken.transfer(msg.sender, usdtWithdrawAmount);
     emit UserWithdrew(msg.sender, usdtWithdrawAmount);
+  }
+
+  function claimUser() public {
+    uint8 tier = getUserTier(msg.sender);
+    uint256 userClaimUsdt = getUserReward(msg.sender, tier);
+    require(canClaim(msg.sender, userClaimUsdt), "daily limit for claim reached");
+    
+    uint256 userClaimFeeUsdt = getUserRewardClaimFeeUsdt(userClaimUsdt, tier);
+    uint256 userClaimFeePandai = getPandaiWorthOf(userClaimFeeUsdt);
+    require(pandaiToken.balanceOf(msg.sender) >= userClaimFeePandai, "not enough PANDAI");
+    require(pandaiToken.allowance(msg.sender, address(this)) >= userClaimFeePandai, "PANDAI allowance too small");
+
+    if (isToday(userMap[msg.sender].lastClaimTimestamp)) {
+      userMap[msg.sender].dailyClaim += userClaimUsdt;
+    } else {
+      userMap[msg.sender].dailyClaim = userClaimUsdt;
+    }
+    userMap[msg.sender].totalClaim += userClaimUsdt;
+    userMap[msg.sender].lastClaimTimestamp = block.timestamp;
+
+    usdtToken.transfer(msg.sender, userClaimUsdt);
+    emit UserRewardClaimed(msg.sender, userClaimUsdt);
+    
+    pandaiToken.burnFrom(msg.sender, userClaimFeePandai);
+    emit PandaiBurnedForUserRewardClaim(msg.sender, userClaimFeePandai);
+  }
+ 
+  function claimReferral() public {
+    uint256 referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
+    require(canClaim(msg.sender, referralClaimUsdt), "daily limit for claim reached");
+    
+    uint256 referralClaimFeeUsdt = getReferralRewardClaimFeeUsdt(referralClaimUsdt);
+    uint256 referralClaimFeePandai = getPandaiWorthOf(referralClaimFeeUsdt);
+    require(pandaiToken.balanceOf(msg.sender) >= referralClaimFeePandai, "not enough PANDAI");
+    require(pandaiToken.allowance(msg.sender, address(this)) >= referralClaimFeePandai, "PANDAI allowance too small");
+
+    if (isToday(userMap[msg.sender].lastClaimTimestamp)) {
+      userMap[msg.sender].dailyClaim += referralClaimUsdt;
+    } else {
+      userMap[msg.sender].dailyClaim = referralClaimUsdt;
+    }
+    userMap[msg.sender].totalClaim += referralClaimUsdt;
+
+    userMap[msg.sender].referralPendingReward = 0;
+    userMap[msg.sender].referralLastUpdateTimestamp = block.timestamp;
+
+    usdtToken.transfer(msg.sender, referralClaimUsdt);
+    emit ReferralRewardClaimed(msg.sender, referralClaimUsdt);
+    
+    pandaiToken.burnFrom(msg.sender, referralClaimFeePandai);
+    emit PandaiBurnedForReferralRewardClaim(msg.sender, referralClaimFeePandai);
+  }
+
+  function claimAll() public {
+    uint8 tier = getUserTier(msg.sender);
+    uint256 userClaimUsdt = getUserReward(msg.sender, tier);
+    uint256 referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
+    require(canClaim(msg.sender, userClaimUsdt + referralClaimUsdt), "daily limit for claim reached");
+    
+    uint256 userClaimFeeUsdt = getUserRewardClaimFeeUsdt(userClaimUsdt, tier);
+    uint256 userClaimFeePandai = getPandaiWorthOf(userClaimFeeUsdt);
+    
+    uint256 referralClaimFeeUsdt = getReferralRewardClaimFeeUsdt(referralClaimUsdt);
+    uint256 referralClaimFeePandai = getPandaiWorthOf(referralClaimFeeUsdt);
+
+    require(pandaiToken.balanceOf(msg.sender) >= userClaimFeePandai + referralClaimFeePandai, "not enough PANDAI");
+    require(pandaiToken.allowance(msg.sender, address(this)) >= userClaimFeePandai + referralClaimFeePandai, "PANDAI allowance too small");
+
+    if (isToday(userMap[msg.sender].lastClaimTimestamp)) {
+      userMap[msg.sender].dailyClaim += userClaimUsdt + referralClaimUsdt;
+    } else {
+      userMap[msg.sender].dailyClaim = userClaimUsdt + referralClaimUsdt;
+    }
+    userMap[msg.sender].totalClaim += userClaimUsdt + referralClaimUsdt;
+    userMap[msg.sender].lastClaimTimestamp = block.timestamp;
+
+    userMap[msg.sender].referralPendingReward = 0;
+    userMap[msg.sender].referralLastUpdateTimestamp = block.timestamp;
+
+    usdtToken.transfer(msg.sender, userClaimUsdt + referralClaimUsdt);
+    emit UserRewardClaimed(msg.sender, userClaimUsdt);
+    emit ReferralRewardClaimed(msg.sender, referralClaimUsdt);
+
+    pandaiToken.burnFrom(msg.sender, userClaimFeePandai + referralClaimFeePandai);
+    emit PandaiBurnedForUserRewardClaim(msg.sender, userClaimFeePandai);
+    emit PandaiBurnedForReferralRewardClaim(msg.sender, referralClaimFeePandai);
   }
 
   function canClaim(address userAddress, uint256 claimUsdt) private view returns (bool) {
