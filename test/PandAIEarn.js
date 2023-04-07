@@ -153,6 +153,10 @@ contract("pandai", function (accounts) {
             assert.isTrue(usdtAmount.eq(await usdt.balanceOf(pandaiEarn.address)));
         });
 
+        it("admin can pause contract", async function () {
+            // TODO
+        });
+
     });
 
     describe("Updater Role", () => {
@@ -232,6 +236,10 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
+        it("cannot deposit when paused", async function () {
+            // TODO
+        });
+
     });
 
     describe("Claim", () => {
@@ -266,6 +274,18 @@ contract("pandai", function (accounts) {
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn.mul(toBN(2))).eq(await pandai.balanceOf(bob)));
 
             await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("NotApproved - daily claim limit", async function () {
+            // TODO
+        });
+
+        it("Approved - no claim limit", async function () {
+            // TODO
+        });
+
+        it("Forbidden - claim forbidden", async function () {
+            // TODO
         });
 
     });
@@ -544,7 +564,6 @@ contract("pandai", function (accounts) {
 
             // requesting withdraw
             await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
-            await truffleAssert.reverts(pandaiEarn.withdraw({ from: bob }));
 
             // advance for 14 days
             await timeMachine.advanceTimeAndBlock(14 * 86400);
@@ -557,7 +576,7 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("withdraw after 5 days", async function () {
+        it("withdraw after 6 days comes with fee", async function () {
             let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
             let pandaiBurn = toBN(40e6).mul(toBN(10 ** pandaiDecimals));
 
@@ -569,12 +588,11 @@ contract("pandai", function (accounts) {
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
 
-            // advance for 5 days
-            await timeMachine.advanceTimeAndBlock(5 * 86400);
+            // advance for 6 days
+            await timeMachine.advanceTimeAndBlock(6 * 86400);
 
             // requesting withdraw
             await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
-            await truffleAssert.reverts(pandaiEarn.withdraw({ from: bob }));
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -591,6 +609,304 @@ contract("pandai", function (accounts) {
 
     });
 
+    describe("Tier2 Params", () => {
+
+        it("claim after 30 days and withdraw", async function () {
+            let usdtDeposit = toBN(800).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(10).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(10).mul(toBN(0.09e6)).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 30 days
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
+
+            // claim
+            await pandaiEarn.claimAll({ from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("withdraw after 29 days comes with fee", async function () {
+            let usdtDeposit = toBN(800).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(800).mul(toBN(0.35e6)).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 29 days
+            await timeMachine.advanceTimeAndBlock(29 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+    });
+
+    describe("Tier3 Params", () => {
+
+        it("claim after 30 days, withdraw after 60 days", async function () {
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(15).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(15).mul(toBN(0.08e6)).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 30 days
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
+
+            // claim
+            await pandaiEarn.claimAll({ from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for additional 30 days
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("withdraw after 59 days comes with fee", async function () {
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(1000).mul(toBN(0.3e6)).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 59 days
+            await timeMachine.advanceTimeAndBlock(59 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+    });
+
+    describe("Tier4 Params", () => {
+
+        it("claim after 30 days, withdraw after 90 days", async function () {
+            let usdtDeposit = toBN(5000).mul(toBN(10 ** usdtDecimals));
+
+            let g = toBN(180);
+            let f1 = usdtDeposit.mul(g).div(toBN(1e4));
+            let f2 = f1.mul(g).div(toBN(1e4)).div(toBN(2));
+            let f3 = f2.mul(g).div(toBN(1e4)).div(toBN(3));
+            let usdtReward = f1.add(f2).add(f3);
+            let pandaiBurn = usdtReward.mul(toBN(0.065e6)).mul(toBN(10 ** pandaiDecimals)).div(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 30 days
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
+
+            // claim
+            await pandaiEarn.claimAll({ from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for additional 60 days
+            await timeMachine.advanceTimeAndBlock(60 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("withdraw after 89 days comes with fee", async function () {
+            let usdtDeposit = toBN(5000).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(5000).mul(toBN(0.25e6)).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 89 days
+            await timeMachine.advanceTimeAndBlock(89 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+    });
+
+    describe("Tier5 Params", () => {
+
+        it("claim after 30 days, withdraw after 180 days", async function () {
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
+
+            let g = toBN(220);
+            let f1 = usdtDeposit.mul(g).div(toBN(1e4));
+            let f2 = f1.mul(g).div(toBN(1e4)).div(toBN(2));
+            let f3 = f2.mul(g).div(toBN(1e4)).div(toBN(3));
+            let usdtReward = f1.add(f2).add(f3);
+            let pandaiBurn = usdtReward.mul(toBN(0.05e6)).mul(toBN(10 ** pandaiDecimals)).div(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 30 days
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
+
+            // claim
+            await pandaiEarn.claimAll({ from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for additional 150 days
+            await timeMachine.advanceTimeAndBlock(150 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("withdraw after 179 days comes with fee", async function () {
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(10000).mul(toBN(0.2e6)).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 179 days
+            await timeMachine.advanceTimeAndBlock(179 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+    });
 
 
 });

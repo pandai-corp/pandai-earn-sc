@@ -142,8 +142,8 @@ contract PandAIEarn is AccessControl, Pausable {
 
   function setLpAddress(address newLpAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
     require(newLpAddress != address(0));
-    require(usdtToken.balanceOf(newLpAddress) > 0, "no usdt");
-    require(pandaiToken.balanceOf(newLpAddress) > 0, "no pandai");
+    require(usdtToken.balanceOf(newLpAddress) > 0);
+    require(pandaiToken.balanceOf(newLpAddress) > 0);
     
     address oldLpAddress = newLpAddress;
     lpAddress = newLpAddress;
@@ -178,8 +178,8 @@ contract PandAIEarn is AccessControl, Pausable {
     require(referralAddress != address(0));
     require(referralAddress != msg.sender);
     
-    require(usdtToken.balanceOf(msg.sender) >= usdtDepositAmount, "not enouth balance");
-    require(usdtToken.allowance(msg.sender, address(this)) >= usdtDepositAmount, "not enouth allowance");
+    require(usdtToken.balanceOf(msg.sender) >= usdtDepositAmount);
+    require(usdtToken.allowance(msg.sender, address(this)) >= usdtDepositAmount);
 
     if (userMap[msg.sender].referral == address(0)) {
       userMap[msg.sender].referral = referralAddress;
@@ -236,9 +236,9 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function withdraw() public {
-    require(userMap[msg.sender].withdrawRequestAmount > 0, "0");
-    require(userMap[msg.sender].withdrawRequestAmount <= usdtToken.balanceOf(address(this)), "1");
-    require(userMap[msg.sender].withdrawPossibleTimestamp <= block.timestamp, "2");
+    require(userMap[msg.sender].withdrawRequestAmount > 0);
+    require(userMap[msg.sender].withdrawRequestAmount <= usdtToken.balanceOf(address(this)));
+    require(userMap[msg.sender].withdrawPossibleTimestamp <= block.timestamp);
 
     uint usdtWithdrawAmount = userMap[msg.sender].withdrawRequestAmount;
     userMap[msg.sender].withdrawRequestAmount = 0;
@@ -253,6 +253,7 @@ contract PandAIEarn is AccessControl, Pausable {
     require(tier > 0);
 
     uint userClaimUsdt = getUserReward(msg.sender, tier);
+    require(userClaimUsdt > 0);
     require(canClaim(msg.sender, userClaimUsdt));
     
     uint userClaimFeePandai = getUserRewardClaimFeePandai(userClaimUsdt, tier);
@@ -276,6 +277,7 @@ contract PandAIEarn is AccessControl, Pausable {
  
   function claimReferral() public {
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
+    require(referralClaimUsdt > 0);
     require(canClaim(msg.sender, referralClaimUsdt));
     
     uint referralClaimFeePandai = getReferralRewardClaimFeePandai(referralClaimUsdt);
@@ -303,6 +305,7 @@ contract PandAIEarn is AccessControl, Pausable {
     uint8 tier = getUserTier(msg.sender);
     uint userClaimUsdt = getUserReward(msg.sender, tier);
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
+    require(userClaimUsdt + referralClaimUsdt > 0);
     require(canClaim(msg.sender, userClaimUsdt + referralClaimUsdt));
     
     uint userClaimFeePandai = getUserRewardClaimFeePandai(userClaimUsdt, tier);
@@ -322,12 +325,15 @@ contract PandAIEarn is AccessControl, Pausable {
     userMap[msg.sender].referralLastUpdateTimestamp = block.timestamp;
 
     usdtToken.transfer(msg.sender, userClaimUsdt + referralClaimUsdt);
-    emit UserRewardClaimed(msg.sender, userClaimUsdt);
-    emit ReferralRewardClaimed(msg.sender, referralClaimUsdt);
-
     pandaiToken.burnFrom(msg.sender, userClaimFeePandai + referralClaimFeePandai);
-    emit PandaiBurnedForUserRewardClaim(msg.sender, userClaimFeePandai);
-    emit PandaiBurnedForReferralRewardClaim(msg.sender, referralClaimFeePandai);
+    if (userClaimUsdt > 0) {
+      emit UserRewardClaimed(msg.sender, userClaimUsdt);
+      emit PandaiBurnedForUserRewardClaim(msg.sender, userClaimFeePandai);
+    }
+    if (referralClaimUsdt > 0) {
+      emit ReferralRewardClaimed(msg.sender, referralClaimUsdt);
+      emit PandaiBurnedForReferralRewardClaim(msg.sender, referralClaimFeePandai);
+    }
   }
 
   function canClaim(address userAddress, uint claimUsdt) private view returns (bool) {
