@@ -186,10 +186,6 @@ contract("pandai", function (accounts) {
             await truffleAssert.reverts(pandaiEarn.revokeRole(updaterRoleBytes, alice, { from: alice }));
         });
 
-    });
-
-    describe("Setting Approval Level", () => {
-
         it("only updater can change approval level", async function () {
             await truffleAssert.reverts(pandaiEarn.setUserApprovalLevel(bob, 1, { from: owner }));
             await truffleAssert.reverts(pandaiEarn.setUserApprovalLevel(bob, 1, { from: bob }));
@@ -258,7 +254,7 @@ contract("pandai", function (accounts) {
 
     describe("Claim", () => {
 
-        it("repeatedly works the same", async function () {
+        it("claim in 30 days and 30 days after works the same", async function () {
             let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
             let usdtReward = toBN(1).mul(toBN(10 ** usdtDecimals));
             let pandaiBurn = toBN(0.1e6).mul(toBN(10 ** pandaiDecimals));
@@ -398,7 +394,7 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("add withdrawAmount to existing pending request", async function () {
+        it("request withdraw when there's already a request increases withdraw amount", async function () {
             let usdtDeposit = toBN(400).mul(toBN(10 ** usdtDecimals));
             let usdtWithdraw = toBN(100).mul(toBN(10 ** usdtDecimals));
             let usdtReward = toBN(3).mul(toBN(10 ** usdtDecimals));
@@ -438,7 +434,7 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("reward from remaining deposit", async function () {
+        it("request withdraw reduces claim reward", async function () {
             let usdtDeposit = toBN(200).mul(toBN(10 ** usdtDecimals));
             let usdtWithdraw = toBN(100).mul(toBN(10 ** usdtDecimals));
             let usdtReward = toBN(2).mul(toBN(10 ** usdtDecimals));
@@ -571,7 +567,7 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("withdrawal decreases referral deposit", async function () {
+        it("withdraw request decreases referral deposit", async function () {
             let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
             let usdtReward = toBN(6).mul(toBN(10 ** usdtDecimals));
             let pandaiBurn = toBN(0.6e6).mul(toBN(10 ** pandaiDecimals));
