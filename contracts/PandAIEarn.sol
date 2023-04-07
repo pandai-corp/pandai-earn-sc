@@ -25,8 +25,8 @@ contract PandAIEarn is AccessControl, Pausable {
 
   uint public constant WITHDRAW_PROCESSING_TIME = 14 days;
   uint public constant INTEREST_PERIOD = 30 days;
-  uint public constant DAILY_CLAIM_LIMIT = 1_000;
-  uint public constant MIRIAD = 10_000;
+  uint public constant DAILY_CLAIM_LIMIT = 1000;
+  uint public constant MIRIAD = 10000;
   uint public constant REFERRAL_MONTHLY_GAIN_BPS = 20;
   uint public constant REFERRAL_CLAIM_FEE_BPS = 1000;
   
@@ -72,6 +72,8 @@ contract PandAIEarn is AccessControl, Pausable {
 
     uint referralPendingReward;
     uint referralPendingPandaiBurn;
+
+    uint depositUnlockTimestamp;
   }
 
   event TreasuryWithdraw(uint usdtAmount);
@@ -102,7 +104,7 @@ contract PandAIEarn is AccessControl, Pausable {
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
-
+ 
   function getUser(address userAddress) external view returns (User memory stored, UserCalculated memory calculated) {    
     require(userAddress != address(0));    
     uint8 tier = getUserTier(userAddress);
@@ -115,7 +117,8 @@ contract PandAIEarn is AccessControl, Pausable {
         userReward,
         getUserRewardClaimFeePandai(userReward, tier),
         referralReward,
-        getReferralRewardClaimFeePandai(referralReward)
+        getReferralRewardClaimFeePandai(referralReward),
+        getDepositUnlokTimestamp(userAddress, tier)
       )
     );
   }
@@ -138,11 +141,11 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function setLpAddress(address newLpAddress) external onlyRole(DEFAULT_ADMIN_ROLE) {
-    require(lpAddress != address(0));
-    require(usdtToken.balanceOf(lpAddress) > 0);
-    require(pandaiToken.balanceOf(lpAddress) > 0);
+    require(newLpAddress != address(0));
+    require(usdtToken.balanceOf(newLpAddress) > 0, "no usdt");
+    require(pandaiToken.balanceOf(newLpAddress) > 0, "no pandai");
     
-    address oldLpAddress = lpAddress;
+    address oldLpAddress = newLpAddress;
     lpAddress = newLpAddress;
     emit LpAddressChanged(oldLpAddress, newLpAddress);
   }
@@ -167,14 +170,17 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function deposit(uint usdtDepositAmount) external {
-    deposit(usdtDepositAmount, DEFAULT_REFERRAL);
+    depositWithReferral(usdtDepositAmount, DEFAULT_REFERRAL);
   }
 
-  function deposit(uint usdtDepositAmount, address referralAddress) public whenNotPaused {
+  function depositWithReferral(uint usdtDepositAmount, address referralAddress) public whenNotPaused {
     require(usdtDepositAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()));
     require(referralAddress != address(0));
     require(referralAddress != msg.sender);
     
+    require(usdtToken.balanceOf(msg.sender) >= usdtDepositAmount, "not enouth balance");
+    require(usdtToken.allowance(msg.sender, address(this)) >= usdtDepositAmount, "not enouth allowance");
+
     if (userMap[msg.sender].referral == address(0)) {
       userMap[msg.sender].referral = referralAddress;
     }
@@ -198,9 +204,11 @@ contract PandAIEarn is AccessControl, Pausable {
       require(userMap[msg.sender].deposit - usdtWithdrawAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()));
     }
 
-    uint withdrawFeePandai;
     uint8 tier = getUserTier(msg.sender);
-    if (userMap[msg.sender].lastDepositTimestamp + tierMap[tier].lockupSeconds > block.timestamp) {
+    require(tier > 0);
+
+    uint withdrawFeePandai;
+    if (getDepositUnlokTimestamp(msg.sender, tier) > block.timestamp) {
       withdrawFeePandai = getPandaiWorthOf(usdtWithdrawAmount * tierMap[tier].lockupBreachFeeBps / MIRIAD);
 
       require(pandaiToken.balanceOf(msg.sender) >= withdrawFeePandai);
@@ -228,9 +236,9 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function withdraw() public {
-    require(userMap[msg.sender].withdrawRequestAmount > 0);
-    require(userMap[msg.sender].withdrawRequestAmount <= usdtToken.balanceOf(address(this)));
-    require(userMap[msg.sender].withdrawPossibleTimestamp <= block.timestamp);
+    require(userMap[msg.sender].withdrawRequestAmount > 0, "0");
+    require(userMap[msg.sender].withdrawRequestAmount <= usdtToken.balanceOf(address(this)), "1");
+    require(userMap[msg.sender].withdrawPossibleTimestamp <= block.timestamp, "2");
 
     uint usdtWithdrawAmount = userMap[msg.sender].withdrawRequestAmount;
     userMap[msg.sender].withdrawRequestAmount = 0;
@@ -242,6 +250,8 @@ contract PandAIEarn is AccessControl, Pausable {
 
   function claimUser() public {
     uint8 tier = getUserTier(msg.sender);
+    require(tier > 0);
+
     uint userClaimUsdt = getUserReward(msg.sender, tier);
     require(canClaim(msg.sender, userClaimUsdt));
     
@@ -338,6 +348,9 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function getPandaiWorthOf(uint usdtAmount) private view returns (uint) {
+    if (usdtAmount == 0) {
+      return 0;
+    }
     uint usdtInLp = usdtToken.balanceOf(lpAddress);
     uint pandaiInLp = pandaiToken.balanceOf(lpAddress);
     require (usdtInLp * pandaiInLp > 0);
@@ -356,6 +369,9 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function getUserReward(address userAddress, uint8 userTier) private view returns (uint) {
+    if (userTier == 0) {
+      return 0;
+    }
     uint g = tierMap[userTier].monthlyGainBps;
     uint t = block.timestamp - userMap[userAddress].lastClaimTimestamp;
     uint f1 = userMap[userAddress].deposit * g * t / MIRIAD / INTEREST_PERIOD;
@@ -368,6 +384,9 @@ contract PandAIEarn is AccessControl, Pausable {
   }
 
   function getUserRewardClaimFeePandai(uint userRewardUsdt, uint8 userTier) private view returns (uint) {
+    if (userTier == 0) {
+      return 0;
+    }
     return getPandaiWorthOf(userRewardUsdt * tierMap[userTier].claimFeeBps / MIRIAD);
   }
 
@@ -378,6 +397,13 @@ contract PandAIEarn is AccessControl, Pausable {
 
   function getReferralRewardClaimFeePandai(uint referralRewardUsdt) private view returns (uint) {
     return getPandaiWorthOf(referralRewardUsdt * REFERRAL_CLAIM_FEE_BPS / MIRIAD);
+  }
+
+  function getDepositUnlokTimestamp(address userAddress, uint8 userTier) private view returns (uint) {
+    if (userTier == 0) {
+      return 0;
+    }
+    return userMap[userAddress].lastDepositTimestamp + tierMap[userTier].lockupSeconds;
   }
 
 }
