@@ -154,7 +154,12 @@ contract("pandai", function (accounts) {
         });
 
         it("admin can pause contract", async function () {
-            // TODO
+            await pandaiEarn.pause({ from: owner });
+            assert.isTrue(await pandaiEarn.paused({ from: owner }));
+            await pandaiEarn.unpause({ from: owner });
+            assert.isFalse(await pandaiEarn.paused({ from: owner }));
+
+            await truffleAssert.reverts(pandaiEarn.pause({ from: alice }));
         });
 
     });
@@ -237,7 +242,16 @@ contract("pandai", function (accounts) {
         });
 
         it("cannot deposit when paused", async function () {
-            // TODO
+            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            await pandaiEarn.pause({ from: owner });
+            await truffleAssert.reverts(pandaiEarn.deposit(usdtDeposit, { from: bob }));
+
+            await timeMachine.revertToSnapshot(snapshotId);
         });
 
     });
@@ -277,15 +291,63 @@ contract("pandai", function (accounts) {
         });
 
         it("NotApproved - daily claim limit", async function () {
-            // TODO
+            // reward: $60 per month
+            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // NotApproved, deposit 
+            await pandaiEarn.setUserApprovalLevel(bob, 0, { from: alice });
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+
+            // advance for 18 * 30 days (reward > $1000)
+            await timeMachine.advanceTimeAndBlock(18 * 30 * 86400);
+
+            await truffleAssert.reverts(pandaiEarn.claimAll({ from: bob }));
+
+            await timeMachine.revertToSnapshot(snapshotId);
         });
 
         it("Approved - no claim limit", async function () {
-            // TODO
+            // reward: $60 per month
+            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // Approved, deposit
+            await pandaiEarn.setUserApprovalLevel(bob, 1, { from: alice });
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+
+            // advance for 18 * 30 days (reward > $1000)
+            await timeMachine.advanceTimeAndBlock(18 * 30 * 86400);
+
+            await truffleAssert.passes(pandaiEarn.claimAll({ from: bob }));
+
+            await timeMachine.revertToSnapshot(snapshotId);
         });
 
         it("Forbidden - claim forbidden", async function () {
-            // TODO
+            // reward: $60 per month
+            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // Forbidden, deposit
+            await pandaiEarn.setUserApprovalLevel(bob, 2, { from: alice });
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+
+            // advance for 1 days
+            await timeMachine.advanceTimeAndBlock(86400);
+
+            await truffleAssert.reverts(pandaiEarn.claimAll({ from: bob }));
+
+            await timeMachine.revertToSnapshot(snapshotId);
         });
 
     });
