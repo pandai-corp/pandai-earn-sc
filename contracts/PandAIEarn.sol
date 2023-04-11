@@ -246,9 +246,9 @@ contract PandAIEarn is AccessControl, Pausable {
     requests USDT withdraw. USDTs will be available for withdraw (other method) after WITHDRAW_PROCESSING_TIME.
     If there's a pending user reward, the reward will be partialy lost because this method decresese deposit and performs no claim.
     It's recommended to call claim() before this method.
-    In case there's already a withdraw pending, it's encreased by usdtWithdrawAmount and WITHDRAW_PROCESSING_TIME is reset.
+    In case there's already a withdraw pending, it's increased by usdtWithdrawAmount and WITHDRAW_PROCESSING_TIME is reset.
   */
-  function requestWithdraw(uint usdtWithdrawAmount) public {
+  function requestWithdraw(uint usdtWithdrawAmount) external {
     require(usdtWithdrawAmount <= userMap[msg.sender].deposit);
     if (usdtWithdrawAmount < userMap[msg.sender].deposit) {
       require(userMap[msg.sender].deposit - usdtWithdrawAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()));
@@ -292,7 +292,7 @@ contract PandAIEarn is AccessControl, Pausable {
   /**
     withdraws requested amount of USDT
   */
-  function withdraw() public {
+  function withdraw() external {
     require(userMap[msg.sender].withdrawRequestAmount > 0);
     require(userMap[msg.sender].withdrawRequestAmount <= usdtToken.balanceOf(address(this)));
     require(userMap[msg.sender].withdrawPossibleTimestamp <= block.timestamp);
@@ -310,7 +310,7 @@ contract PandAIEarn is AccessControl, Pausable {
   /**
     claims user reward (derived from it's own deposit)
   */
-  function claimUser() public {
+  function claimUser() external {
     uint8 tier = getUserTier(msg.sender);
     require(tier > 0);
 
@@ -343,7 +343,7 @@ contract PandAIEarn is AccessControl, Pausable {
   /**
     claims referral reward (derived from deposits of users with referral being the caller)
   */
-  function claimReferral() public {
+  function claimReferral() external {
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
     require(referralClaimUsdt > 0);
     require(canClaim(msg.sender, referralClaimUsdt));
@@ -376,7 +376,7 @@ contract PandAIEarn is AccessControl, Pausable {
   /**
     combines claimUser() and claimReferral() into a single contract call.
   */
-  function claimAll() public {
+  function claimAll() external {
     uint8 tier = getUserTier(msg.sender);
     uint userClaimUsdt = getUserReward(msg.sender, tier);
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
