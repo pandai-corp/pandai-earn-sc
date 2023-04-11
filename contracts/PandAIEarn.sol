@@ -21,14 +21,15 @@ contract PandAIEarn is AccessControl, Pausable {
   address private lpAddress;
 
   bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
-  address public constant DEFAULT_REFERRAL = 0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1;
+  address private constant DEFAULT_REFERRAL = 0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1;
 
-  uint public constant WITHDRAW_PROCESSING_TIME = 14 days;  // user requests withdrawal -> 14 days waiting -> withdrawal can be executed
-  uint public constant INTEREST_PERIOD = 30 days;           // period for Tier.monthlyGainBps
-  uint public constant DAILY_CLAIM_LIMIT = 1000;            // daily claim limit of USDT for NotApproved users
-  uint public constant MIRIAD = 10000;                      // helper for divisor
-  uint public constant REFERRAL_MONTHLY_GAIN_BPS = 20;      // 0.2% reward for referrals
-  uint public constant REFERRAL_CLAIM_FEE_BPS = 1000;       // 10% referral claim fee
+  uint private constant BASE_PERIOD = 1 days;                        // base period for time (mainnet: 1 day, devnet: minutes)
+  uint private constant WITHDRAW_PROCESSING_TIME = 14 * BASE_PERIOD; // user requests withdrawal -> 14 days waiting -> withdrawal can be executed
+  uint private constant INTEREST_PERIOD = 30 * BASE_PERIOD;          // period for Tier.monthlyGainBps
+  uint private constant DAILY_CLAIM_LIMIT = 1000;                    // daily claim limit of USDT for NotApproved users
+  uint private constant MIRIAD = 10000;                              // helper for divisor
+  uint private constant REFERRAL_MONTHLY_GAIN_BPS = 20;              // 0.2% reward for referrals
+  uint private constant REFERRAL_CLAIM_FEE_BPS = 1000;               // 10% referral claim fee
   
   /**
     0: NotApproved (daily claim limit of $1000)
@@ -37,7 +38,7 @@ contract PandAIEarn is AccessControl, Pausable {
   */
   enum ApprovalLevel{ NotApproved, Approved, Forbidden }
 
-  mapping(uint8 => Tier) public tierMap;
+  mapping(uint8 => Tier) private tierMap;
   struct Tier {
     uint minDeposit;
     bool compoundInterest;     
@@ -49,7 +50,7 @@ contract PandAIEarn is AccessControl, Pausable {
     uint lockupBreachFeeBps;
   }
 
-  mapping(address => User) public userMap;
+  mapping(address => User) private userMap;
   struct User {
     address referral;                  // referral address for this account
     uint8 approvalLevel;               // approval level of this user (from ApprovalLevel enum)
@@ -101,11 +102,11 @@ contract PandAIEarn is AccessControl, Pausable {
     usdtToken = IERC20Extended(usdtTokenAddress);
     pandaiToken = IERC20Burnable(pandaiTokenAddress);
 
-    tierMap[1] = Tier(  100, false, 100, 1000,   7 days, 4000);
-    tierMap[2] = Tier(  500, false, 125,  900,  30 days, 3500);
-    tierMap[3] = Tier( 1000, false, 150,  800,  60 days, 3000);
-    tierMap[4] = Tier( 5000,  true, 180,  650,  90 days, 2500);
-    tierMap[5] = Tier(10000,  true, 220,  500, 180 days, 2000);
+    tierMap[1] = Tier(  100, false, 100, 1000,   7 * BASE_PERIOD, 4000);
+    tierMap[2] = Tier(  500, false, 125,  900,  30 * BASE_PERIOD, 3500);
+    tierMap[3] = Tier( 1000, false, 150,  800,  60 * BASE_PERIOD, 3000);
+    tierMap[4] = Tier( 5000,  true, 180,  650,  90 * BASE_PERIOD, 2500);
+    tierMap[5] = Tier(10000,  true, 220,  500, 180 * BASE_PERIOD, 2000);
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
@@ -434,7 +435,7 @@ contract PandAIEarn is AccessControl, Pausable {
     simple check whether given timestamp falls into same day
   */
   function isToday(uint timestamp) private view returns (bool) {
-    return block.timestamp / 1 days == timestamp / 1 days;
+    return block.timestamp / BASE_PERIOD == timestamp / 1 * BASE_PERIOD;
   }
 
   /**
