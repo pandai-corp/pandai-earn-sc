@@ -435,7 +435,7 @@ contract PandAIEarn is AccessControl, Pausable {
     simple check whether given timestamp falls into same day
   */
   function isToday(uint timestamp) private view returns (bool) {
-    return block.timestamp / BASE_PERIOD == timestamp / 1 * BASE_PERIOD;
+    return block.timestamp / BASE_PERIOD == timestamp / BASE_PERIOD;
   }
 
   /**
