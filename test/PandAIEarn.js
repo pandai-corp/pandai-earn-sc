@@ -230,7 +230,7 @@ contract("pandai", function (accounts) {
             // advance for another 30 days
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit.mul(toBN(2))).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -271,7 +271,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -279,7 +279,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward.mul(toBN(2))).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn.mul(toBN(2))).eq(await pandai.balanceOf(bob)));
 
@@ -301,7 +301,7 @@ contract("pandai", function (accounts) {
             // advance for 18 * 30 days (reward > $1000)
             await timeMachine.advanceTimeAndBlock(18 * 30 * 86400);
 
-            await truffleAssert.reverts(pandaiEarn.claimAll({ from: bob }));
+            await truffleAssert.reverts(pandaiEarn.claim({ from: bob }));
 
             await timeMachine.revertToSnapshot(snapshotId);
         });
@@ -321,7 +321,7 @@ contract("pandai", function (accounts) {
             // advance for 18 * 30 days (reward > $1000)
             await timeMachine.advanceTimeAndBlock(18 * 30 * 86400);
 
-            await truffleAssert.passes(pandaiEarn.claimAll({ from: bob }));
+            await truffleAssert.passes(pandaiEarn.claim({ from: bob }));
 
             await timeMachine.revertToSnapshot(snapshotId);
         });
@@ -341,7 +341,7 @@ contract("pandai", function (accounts) {
             // advance for 1 days
             await timeMachine.advanceTimeAndBlock(86400);
 
-            await truffleAssert.reverts(pandaiEarn.claimAll({ from: bob }));
+            await truffleAssert.reverts(pandaiEarn.claim({ from: bob }));
 
             await timeMachine.revertToSnapshot(snapshotId);
         });
@@ -427,7 +427,7 @@ contract("pandai", function (accounts) {
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtWithdraw.mul(toBN(3))).eq(await usdt.balanceOf(bob)));
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtWithdraw.mul(toBN(3))).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -457,7 +457,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -525,14 +525,14 @@ contract("pandai", function (accounts) {
             // advance for 30 days
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
             // advance for another 30 days
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.add(usdtReward.mul(toBN(2))).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn.mul(toBN(2))).eq(await pandai.balanceOf(bob)));
 
@@ -560,7 +560,7 @@ contract("pandai", function (accounts) {
             // advance for another 30 days
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -588,7 +588,7 @@ contract("pandai", function (accounts) {
             // advance for another 30 days
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -616,7 +616,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -686,7 +686,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -756,7 +756,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -834,7 +834,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
@@ -912,7 +912,7 @@ contract("pandai", function (accounts) {
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // claim
-            await pandaiEarn.claimAll({ from: bob });
+            await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
 
