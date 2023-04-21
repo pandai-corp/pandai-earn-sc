@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.9;
+pragma solidity 0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
@@ -130,7 +130,7 @@ contract PandAIEarn is AccessControl, Pausable {
         getUserRewardClaimFeePandai(userReward, tier),
         referralReward,
         getReferralRewardClaimFeePandai(referralReward),
-        getDepositUnlokTimestamp(userAddress, tier)
+        getDepositUnlockTimestamp(userAddress, tier)
       )
     );
   }
@@ -260,7 +260,7 @@ contract PandAIEarn is AccessControl, Pausable {
 
     // if withdraw is called before lockup, there's a fee paid in PANDAI
     uint withdrawFeePandai;
-    if (getDepositUnlokTimestamp(msg.sender, tier) > block.timestamp) {
+    if (getDepositUnlockTimestamp(msg.sender, tier) > block.timestamp) {
       withdrawFeePandai = getPandaiWorthOf(usdtWithdrawAmount * tierMap[tier].lockupBreachFeeBps / MIRIAD);
 
       require(pandaiToken.balanceOf(msg.sender) >= withdrawFeePandai, "pandai balance");
@@ -447,7 +447,7 @@ contract PandAIEarn is AccessControl, Pausable {
   /**
     timestamp when it's no longer required to burn PANDAI when requesting withdraw
   */
-  function getDepositUnlokTimestamp(address userAddress, uint8 userTier) private view returns (uint) {
+  function getDepositUnlockTimestamp(address userAddress, uint8 userTier) private view returns (uint) {
     if (userTier == 0) {
       return 0;
     }
