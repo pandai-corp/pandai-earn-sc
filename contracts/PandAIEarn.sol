@@ -15,8 +15,8 @@ interface IERC20Burnable is IERC20Extended {
 
 contract PandAIEarn is AccessControl, Pausable {
 
-  IERC20Extended private usdtToken;
-  IERC20Burnable private pandaiToken;
+  IERC20Extended private immutable usdtToken;
+  IERC20Burnable private immutable pandaiToken;
   
   address private lpAddress;
 
@@ -40,14 +40,14 @@ contract PandAIEarn is AccessControl, Pausable {
 
   mapping(uint8 => Tier) private tierMap;
   struct Tier {
-    uint minDeposit;
+    uint16 minDeposit;
     bool compoundInterest;     
     
-    uint monthlyGainBps;
-    uint claimFeeBps;
+    uint8 monthlyGainBps;
+    uint16 claimFeeBps;
 
     uint lockupSeconds;
-    uint lockupBreachFeeBps;
+    uint16 lockupBreachFeeBps;
   }
 
   mapping(address => User) private userMap;
