@@ -64,10 +64,12 @@ contract PandAIEarn is AccessControl, Pausable {
     uint dailyClaim;                   // usdt user claimed today
     uint totalClaim;                   // usdt user claimed in total
     uint lastClaimTimestamp;           // last time when user called claim
+   
+    uint userPendingReward;            // user reward that hasn't been claimed because of deposit or request withdraw
 
     uint referralDeposit;              // sum of usdt deposits of users bellow this user (in referral program)
     uint referralPendingReward;        // pending referral reward (calculated in referralLastUpdateTimestamp)
-    uint referralLastUpdateTimestamp;  // time when referalPendingReward was updated
+    uint referralLastUpdateTimestamp;  // time when referalPendingReward was updated 
   }
 
   struct UserCalculated {
@@ -118,7 +120,7 @@ contract PandAIEarn is AccessControl, Pausable {
     require(userAddress != address(0), "empty address");    
 
     uint8 tier = getUserTier(userAddress);
-    uint userReward = getUserReward(userAddress, tier);
+    uint userReward = userMap[msg.sender].userPendingReward + getNewUserReward(userAddress, tier);
     uint referralReward = userMap[userAddress].referralPendingReward + getNewReferralReward(userAddress);
     return (
       userMap[userAddress],
@@ -209,8 +211,6 @@ contract PandAIEarn is AccessControl, Pausable {
 
   /**
     deposits USDT, referralAddress is used only if no referral is set for address making deposit (the first deposit of the address).
-    If there's a pending user reward, the reward is lost because this method restarts User.lastClaimTimestamp and makes no claim.
-    It's recommended to call claim() before this method.
   */
   function depositWithReferral(uint usdtDepositAmount, address referralAddress) public whenNotPaused {
     require(usdtDepositAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "small deposit");
@@ -223,6 +223,11 @@ contract PandAIEarn is AccessControl, Pausable {
     }
 
     // update user
+    uint8 tier = getUserTier(msg.sender);
+    if (tier > 0) {
+      userMap[msg.sender].userPendingReward += getNewUserReward(msg.sender, tier);
+    }
+
     userMap[msg.sender].deposit += usdtDepositAmount;
     userMap[msg.sender].lastDepositTimestamp = block.timestamp;
     userMap[msg.sender].lastClaimTimestamp = block.timestamp;
@@ -240,8 +245,6 @@ contract PandAIEarn is AccessControl, Pausable {
 
   /**
     requests USDT withdraw. USDTs will be available for withdraw (other method) after WITHDRAW_PROCESSING_TIME.
-    If there's a pending user reward, the reward will be partialy lost because this method decresese deposit and performs no claim.
-    It's recommended to call claim() before this method.
     In case there's already a withdraw pending, it's increased by usdtWithdrawAmount and WITHDRAW_PROCESSING_TIME is reset.
   */
   function requestWithdraw(uint usdtWithdrawAmount) external {
@@ -263,6 +266,9 @@ contract PandAIEarn is AccessControl, Pausable {
     }
 
     // update user
+    userMap[msg.sender].userPendingReward += getNewUserReward(msg.sender, tier);
+    userMap[msg.sender].lastClaimTimestamp = block.timestamp;
+
     userMap[msg.sender].deposit -= usdtWithdrawAmount;
     userMap[msg.sender].withdrawRequestAmount += usdtWithdrawAmount;
     userMap[msg.sender].withdrawPossibleTimestamp = block.timestamp + WITHDRAW_PROCESSING_TIME;
@@ -308,7 +314,7 @@ contract PandAIEarn is AccessControl, Pausable {
   */
   function claim() external {
     uint8 tier = getUserTier(msg.sender);
-    uint userClaimUsdt = getUserReward(msg.sender, tier);
+    uint userClaimUsdt = userMap[msg.sender].userPendingReward + getNewUserReward(msg.sender, tier);
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
     require(userClaimUsdt + referralClaimUsdt > 0, "empty claim");
     require(canClaim(msg.sender, userClaimUsdt + referralClaimUsdt), "user cannot claim");
@@ -319,6 +325,7 @@ contract PandAIEarn is AccessControl, Pausable {
     require(pandaiToken.allowance(msg.sender, address(this)) >= userClaimFeePandai + referralClaimFeePandai, "pandai allowance");
 
     // update user
+    userMap[msg.sender].userPendingReward = 0;
     if (isToday(userMap[msg.sender].lastClaimTimestamp)) {
       userMap[msg.sender].dailyClaim += userClaimUsdt + referralClaimUsdt;
     } else {
@@ -398,7 +405,7 @@ contract PandAIEarn is AccessControl, Pausable {
     claculates user reward that follows eiterh simple or compounc interest. 
     In case of compound iterest, the calculatio follows taylor series for exponential
   */
-  function getUserReward(address userAddress, uint8 userTier) private view returns (uint) {
+  function getNewUserReward(address userAddress, uint8 userTier) private view returns (uint) {
     if (userTier == 0) {
       return 0;
     }

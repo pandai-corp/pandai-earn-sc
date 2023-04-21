@@ -209,8 +209,8 @@ contract("pandai", function (accounts) {
 
         it("second deposit", async function () {
             let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(2).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.2e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtReward = toBN(3).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.3e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -397,8 +397,8 @@ contract("pandai", function (accounts) {
         it("request withdraw when there's already a request increases withdraw amount", async function () {
             let usdtDeposit = toBN(400).mul(toBN(10 ** usdtDecimals));
             let usdtWithdraw = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(3).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.3e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtReward = toBN(7).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.7e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -408,19 +408,19 @@ contract("pandai", function (accounts) {
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
 
-            // advance for 30 days
+            // advance for 30 days (reward: 400 USDT over 30 days: $4)
             await timeMachine.advanceTimeAndBlock(30 * 86400);
             await pandaiEarn.requestWithdraw(usdtWithdraw, { from: bob });
 
-            // advance for 10 days
+            // advance for 10 days (reward: 300 USDT over 10 days: $1)
             await timeMachine.advanceTimeAndBlock(10 * 86400);
             await pandaiEarn.requestWithdraw(usdtWithdraw, { from: bob });
 
-            // advance for 20 days
-            await timeMachine.advanceTimeAndBlock(20 * 86400);
+            // advance for 15 days (reward: 200 USDT over 15 days: $1)
+            await timeMachine.advanceTimeAndBlock(15 * 86400);
             await pandaiEarn.requestWithdraw(usdtWithdraw, { from: bob });
 
-            // advance for 30 days
+            // advance for 30 days (reward: 100 USDT over 30 days: $1)
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             await pandaiEarn.withdraw({ from: bob });
@@ -434,11 +434,11 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("request withdraw reduces claim reward", async function () {
+        it("request withdraw keeps claim reward", async function () {
             let usdtDeposit = toBN(200).mul(toBN(10 ** usdtDecimals));
             let usdtWithdraw = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(2).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.2e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtReward = toBN(3).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.3e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -965,6 +965,5 @@ contract("pandai", function (accounts) {
         });
 
     });
-
 
 });
