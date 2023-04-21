@@ -172,7 +172,7 @@ contract PandAIEarn is AccessControl, Pausable {
     require(usdtToken.balanceOf(newLpAddress) > 0, "no usdt in lp");
     require(pandaiToken.balanceOf(newLpAddress) > 0, "no pandai in lp");
     
-    address oldLpAddress = newLpAddress;
+    address oldLpAddress = lpAddress;
     lpAddress = newLpAddress;
     emit LpAddressChanged(oldLpAddress, newLpAddress);
   }
