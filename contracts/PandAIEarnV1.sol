@@ -309,7 +309,7 @@ contract PandAIEarnV1 is AccessControl, Pausable {
     claims user reward (derived from it's own deposit) and
     referral reward (derived from deposits of users with referral being the caller)
   */
-  function claim() external {
+  function claim() external whenNotPaused {
     require(msg.sender == tx.origin, "calls from contract disallowed");
 
     uint8 tier = getUserTier(msg.sender);
