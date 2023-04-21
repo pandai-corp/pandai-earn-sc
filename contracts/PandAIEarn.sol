@@ -213,6 +213,7 @@ contract PandAIEarn is AccessControl, Pausable {
     deposits USDT, referralAddress is used only if no referral is set for address making deposit (the first deposit of the address).
   */
   function depositWithReferral(uint usdtDepositAmount, address referralAddress) public whenNotPaused {
+    require(msg.sender == tx.origin, "calls from contract disallowed");
     require(usdtDepositAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "small deposit");
     require(referralAddress != address(0), "invalid referral");
     require(referralAddress != msg.sender, "invalid referral");
@@ -248,6 +249,7 @@ contract PandAIEarn is AccessControl, Pausable {
     In case there's already a withdraw pending, it's increased by usdtWithdrawAmount and WITHDRAW_PROCESSING_TIME is reset.
   */
   function requestWithdraw(uint usdtWithdrawAmount) external {
+    require(msg.sender == tx.origin, "calls from contract disallowed");
     require(usdtWithdrawAmount <= userMap[msg.sender].deposit, "withdraw bigger than deposit");
     if (usdtWithdrawAmount < userMap[msg.sender].deposit) {
       require(userMap[msg.sender].deposit - usdtWithdrawAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "small deposit remaining");
@@ -313,6 +315,8 @@ contract PandAIEarn is AccessControl, Pausable {
     referral reward (derived from deposits of users with referral being the caller)
   */
   function claim() external {
+    require(msg.sender == tx.origin, "calls from contract disallowed");
+
     uint8 tier = getUserTier(msg.sender);
     uint userClaimUsdt = userMap[msg.sender].userPendingReward + getNewUserReward(msg.sender, tier);
     uint referralClaimUsdt = userMap[msg.sender].referralPendingReward + getNewReferralReward(msg.sender);
