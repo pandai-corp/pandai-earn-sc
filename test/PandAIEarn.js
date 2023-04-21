@@ -250,6 +250,34 @@ contract("pandai", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
+        it("cannot deposit bellow $100", async function () {
+            let usdtDeposit = toBN(50).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            await truffleAssert.reverts(pandaiEarn.deposit(usdtDeposit, { from: bob }));
+            
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("second deposit bellow $100 allowed", async function () {
+            let usdtDeposit1 = toBN(100).mul(toBN(10 ** usdtDecimals));
+            let usdtDeposit2 = toBN(50).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            await pandaiEarn.deposit(usdtDeposit1, { from: bob });
+            await pandaiEarn.deposit(usdtDeposit2, { from: bob });
+
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit1).sub(usdtDeposit2).eq(await usdt.balanceOf(bob)));
+            
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
     });
 
     describe("Claim", () => {

@@ -214,7 +214,7 @@ contract PandAIEarn is AccessControl, Pausable {
   */
   function depositWithReferral(uint usdtDepositAmount, address referralAddress) public whenNotPaused {
     require(msg.sender == tx.origin, "calls from contract disallowed");
-    require(usdtDepositAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "small deposit");
+    require(userMap[msg.sender].deposit + usdtDepositAmount >= tierMap[1].minDeposit * (10 ** usdtToken.decimals()), "small deposit");
     require(referralAddress != address(0), "invalid referral");
     require(referralAddress != msg.sender, "invalid referral");
 
