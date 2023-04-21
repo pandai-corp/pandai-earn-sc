@@ -1,4 +1,4 @@
 /node_modules
 /build/contracts/*
-!/build/contracts/PandAIEarn.json
+!/build/contracts/PandAIEarnV1.json
 .secret

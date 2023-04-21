@@ -13,7 +13,7 @@ interface IERC20Burnable is IERC20Extended {
   function burnFrom(address account, uint amount) external;
 }
 
-contract PandAIEarn is AccessControl, Pausable {
+contract PandAIEarnV1 is AccessControl, Pausable {
 
   IERC20Extended private immutable usdtToken;
   IERC20Burnable private immutable pandaiToken;

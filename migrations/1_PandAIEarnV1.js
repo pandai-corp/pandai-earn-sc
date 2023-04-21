@@ -1,6 +1,6 @@
 const PandAI = artifacts.require("PandAI");
 const USDT = artifacts.require("USDT");
-const PandAIEarn = artifacts.require("PandAIEarn");
+const PandAIEarn = artifacts.require("PandAIEarnV1");
 
 module.exports = async function (deployer) {
   await deployer.deploy(USDT);

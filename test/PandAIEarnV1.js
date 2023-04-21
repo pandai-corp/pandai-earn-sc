@@ -3,9 +3,9 @@ const truffleAssert = require('truffle-assertions');
 
 const PandAI = artifacts.require("PandAI");
 const USDT = artifacts.require("USDT");
-const PandAIEarn = artifacts.require("PandAIEarn");
+const PandAIEarn = artifacts.require("PandAIEarnV1");
 
-contract("pandai", function (accounts) {
+contract("pandaiV1", function (accounts) {
 
     let pandai;
     let pandaiDecimals;
