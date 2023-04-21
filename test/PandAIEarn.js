@@ -531,7 +531,7 @@ contract("pandai", function (accounts) {
 
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
             let userBob = await pandaiEarn.getUser(bob, { from: bob });
-            assert.equal(userBob.stored.referral, "0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1");
+            assert.equal(userBob.stored.referral, "0xeA51341bb930E2D8561ad2a4430873D6d18997BD");
 
             await timeMachine.revertToSnapshot(snapshotId);
         });

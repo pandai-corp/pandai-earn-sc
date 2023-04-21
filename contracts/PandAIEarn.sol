@@ -21,7 +21,7 @@ contract PandAIEarn is AccessControl, Pausable {
   address private lpAddress;
 
   bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
-  address private constant DEFAULT_REFERRAL = 0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1;
+  address private constant DEFAULT_REFERRAL = 0xeA51341bb930E2D8561ad2a4430873D6d18997BD;
 
   uint private constant BASE_PERIOD = 1 days;                        // base period for time (mainnet: 1 day, devnet: minutes)
   uint private constant WITHDRAW_PROCESSING_TIME = 14 * BASE_PERIOD; // user requests withdrawal -> 14 days waiting -> withdrawal can be executed
