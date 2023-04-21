@@ -258,7 +258,7 @@ contract("pandai", function (accounts) {
             await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
 
             await truffleAssert.reverts(pandaiEarn.deposit(usdtDeposit, { from: bob }));
-            
+
             await timeMachine.revertToSnapshot(snapshotId);
         });
 

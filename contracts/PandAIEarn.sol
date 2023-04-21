@@ -276,13 +276,8 @@ contract PandAIEarn is AccessControl, Pausable {
     userMap[msg.sender].withdrawPossibleTimestamp = block.timestamp + WITHDRAW_PROCESSING_TIME;
     
     // update referral
-    uint newReferralReward = getNewReferralReward(userMap[msg.sender].referral);
-    if (userMap[userMap[msg.sender].referral].referralDeposit >= usdtWithdrawAmount) {
-      userMap[userMap[msg.sender].referral].referralDeposit -= usdtWithdrawAmount;
-    } else {
-      userMap[userMap[msg.sender].referral].referralDeposit = 0;
-    }
-    userMap[userMap[msg.sender].referral].referralPendingReward += newReferralReward;
+    userMap[userMap[msg.sender].referral].referralPendingReward += getNewReferralReward(userMap[msg.sender].referral);
+    userMap[userMap[msg.sender].referral].referralDeposit -= usdtWithdrawAmount;
     userMap[userMap[msg.sender].referral].referralLastUpdateTimestamp = block.timestamp;
 
     // if needed, burn PANDAI
