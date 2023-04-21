@@ -423,8 +423,8 @@ contract PandAIEarnV1 is AccessControl, Pausable {
     how much PANDAI user in given tier should burn when claiming given user reward
   */
   function getUserRewardClaimFeePandai(uint userRewardUsdt, uint8 userTier) private view returns (uint) {
-    if (userTier == 0) {
-      return 0;
+    if (userTier == 0) { // user withdrew everything
+      userTier = 1;
     }
     return getPandaiWorthOf(userRewardUsdt * tierMap[userTier].claimFeeBps / MIRIAD);
   }
