@@ -231,6 +231,9 @@ contract PandAIEarnV1 is AccessControl, Pausable {
 
     userMap[msg.sender].deposit += usdtDepositAmount;
     userMap[msg.sender].lastDepositTimestamp = block.timestamp;
+    if (!isToday(userMap[msg.sender].lastClaimTimestamp)) {
+      userMap[msg.sender].dailyClaim = 0;
+    }
     userMap[msg.sender].lastClaimTimestamp = block.timestamp;
     
     // update referral
@@ -269,6 +272,9 @@ contract PandAIEarnV1 is AccessControl, Pausable {
 
     // update user
     userMap[msg.sender].userPendingReward += getNewUserReward(msg.sender, tier);
+    if (!isToday(userMap[msg.sender].lastClaimTimestamp)) {
+      userMap[msg.sender].dailyClaim = 0;
+    }
     userMap[msg.sender].lastClaimTimestamp = block.timestamp;
 
     userMap[msg.sender].deposit -= usdtWithdrawAmount;
@@ -363,7 +369,7 @@ contract PandAIEarnV1 is AccessControl, Pausable {
     if (isToday(userMap[userAddress].lastClaimTimestamp)) {
       claimUsdt += userMap[userAddress].dailyClaim;
     }
-    return claimUsdt / (10 ** usdtToken.decimals()) < DAILY_CLAIM_LIMIT;
+    return claimUsdt / (10 ** usdtToken.decimals()) <= DAILY_CLAIM_LIMIT;
   }
 
   /**

@@ -374,6 +374,51 @@ contract("pandaiV1", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
+        it("Daily claim limit is kept after claim and deposit in the same day", async function () {
+            // reward: $60 per month
+            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+    
+            // claim in 30 days and deposit
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
+            await pandaiEarn.claim({from: bob});
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+    
+            let dailyClaim = (await pandaiEarn.getUser(bob, {from: bob})).stored.dailyClaim;
+            assert.isTrue(dailyClaim > 0);
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+        
+        it("Daily claim limit resets after claim and deposit the other day", async function () {
+           // reward: $60 per month
+           let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+
+           // approvals
+           await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+           await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+           // deposit
+           await pandaiEarn.deposit(usdtDeposit, { from: bob });
+   
+           // claim in 30 days and deposit day after
+           await timeMachine.advanceTimeAndBlock(30 * 86400);
+           await pandaiEarn.claim({from: bob});
+           await timeMachine.advanceTimeAndBlock(86400);
+           await pandaiEarn.deposit(usdtDeposit, { from: bob });
+   
+           let dailyClaim = (await pandaiEarn.getUser(bob, {from: bob})).stored.dailyClaim;
+           assert.isTrue(dailyClaim == 0);
+
+           await timeMachine.revertToSnapshot(snapshotId);
+        });
+
     });
 
     describe("Withdraw", () => {
@@ -992,6 +1037,6 @@ contract("pandaiV1", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-    });
+    }); 
 
 });
