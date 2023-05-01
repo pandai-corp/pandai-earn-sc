@@ -28,4 +28,24 @@
 
 
 # Mainnet
+- https://chainlist.org/?search=bsc
+- https://bscscan.com/
 - BASE_PERIOD = 1 days;
+
+## USDT
+- Contract: `0x55d398326f99059fF775485246999027B3197955`
+  - https://bscscan.com/token/0x55d398326f99059fF775485246999027B3197955
+
+## PandAI
+- Contract: `0x550D7984b7AdFfF88815E5528e12E322DF6D3B9B`
+  - https://bscscan.com/token/0x550d7984b7adfff88815e5528e12e322df6d3b9b
+
+## PandAIEarn
+- Contract: `0x0B68F81071e68577A99e97F21C1C6e147ce5E96C`
+  - https://bscscan.com/address/0x0b68f81071e68577a99e97f21c1c6e147ce5e96c
+  - Admins: 
+    - `0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1`
+  - Updaters:
+    - no updaters yet
+  - LP: `0x46E15b005fd2d02B864E5093978e05064e581430`
+    - https://bscscan.com/address/0x46e15b005fd2d02b864e5093978e05064e581430
