@@ -208,9 +208,9 @@ contract("pandaiV1_1", function (accounts) {
     describe("Deposit", () => {
 
         it("second deposit", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(3).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.3e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(30).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(1.8e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -250,8 +250,8 @@ contract("pandaiV1_1", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("cannot deposit bellow $100", async function () {
-            let usdtDeposit = toBN(50).mul(toBN(10 ** usdtDecimals));
+        it("cannot deposit bellow $1000", async function () {
+            let usdtDeposit = toBN(999).mul(toBN(10 ** usdtDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -262,8 +262,8 @@ contract("pandaiV1_1", function (accounts) {
             await timeMachine.revertToSnapshot(snapshotId);
         });
 
-        it("second deposit bellow $100 allowed", async function () {
-            let usdtDeposit1 = toBN(100).mul(toBN(10 ** usdtDecimals));
+        it("second deposit bellow $1000 allowed", async function () {
+            let usdtDeposit1 = toBN(1000).mul(toBN(10 ** usdtDecimals));
             let usdtDeposit2 = toBN(50).mul(toBN(10 ** usdtDecimals));
 
             // approvals
@@ -283,9 +283,9 @@ contract("pandaiV1_1", function (accounts) {
     describe("Claim", () => {
 
         it("claim in 30 days and 30 days after works the same", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(1).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.1e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(10).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.6e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -315,8 +315,8 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("NotApproved - daily claim limit", async function () {
-            // reward: $60 per month
-            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+            // reward: $120 per month
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -326,8 +326,8 @@ contract("pandaiV1_1", function (accounts) {
             await pandaiEarn.setUserApprovalLevel(bob, 0, { from: alice });
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
 
-            // advance for 18 * 30 days (reward > $1000)
-            await timeMachine.advanceTimeAndBlock(18 * 30 * 86400);
+            // advance for 12 * 30 days (reward > $1000)
+            await timeMachine.advanceTimeAndBlock(12 * 30 * 86400);
 
             await truffleAssert.reverts(pandaiEarn.claim({ from: bob }));
 
@@ -335,8 +335,8 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("Approved - no claim limit", async function () {
-            // reward: $60 per month
-            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+            // reward: $120 per month
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -346,8 +346,8 @@ contract("pandaiV1_1", function (accounts) {
             await pandaiEarn.setUserApprovalLevel(bob, 1, { from: alice });
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
 
-            // advance for 18 * 30 days (reward > $1000)
-            await timeMachine.advanceTimeAndBlock(18 * 30 * 86400);
+            // advance for 12 * 30 days (reward > $1000)
+            await timeMachine.advanceTimeAndBlock(12 * 30 * 86400);
 
             await truffleAssert.passes(pandaiEarn.claim({ from: bob }));
 
@@ -355,8 +355,8 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("Forbidden - claim forbidden", async function () {
-            // reward: $60 per month
-            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+            // reward: $120 per month
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -423,8 +423,8 @@ contract("pandaiV1_1", function (accounts) {
 
     describe("Withdraw", () => {
 
-        it("resulting balance cannot be > 0 and ≤ 100 USDT", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
+        it("resulting balance cannot be > 0 and ≤ 1000 USDT", async function () {
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
             let usdtWithdraw = toBN(50).mul(toBN(10 ** usdtDecimals));
 
             // approvals
@@ -445,7 +445,7 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("request takes 14 days to process", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -468,10 +468,10 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("request withdraw when there's already a request increases withdraw amount", async function () {
-            let usdtDeposit = toBN(400).mul(toBN(10 ** usdtDecimals));
-            let usdtWithdraw = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(7).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.7e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtDeposit = toBN(4000).mul(toBN(10 ** usdtDecimals));
+            let usdtWithdraw = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(70).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(4.2e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -481,19 +481,19 @@ contract("pandaiV1_1", function (accounts) {
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
 
-            // advance for 30 days (reward: 400 USDT over 30 days: $4)
+            // advance for 30 days (reward: 4000 USDT over 30 days: $40)
             await timeMachine.advanceTimeAndBlock(30 * 86400);
             await pandaiEarn.requestWithdraw(usdtWithdraw, { from: bob });
 
-            // advance for 10 days (reward: 300 USDT over 10 days: $1)
+            // advance for 10 days (reward: 3000 USDT over 10 days: $10)
             await timeMachine.advanceTimeAndBlock(10 * 86400);
             await pandaiEarn.requestWithdraw(usdtWithdraw, { from: bob });
 
-            // advance for 15 days (reward: 200 USDT over 15 days: $1)
+            // advance for 15 days (reward: 2000 USDT over 15 days: $10)
             await timeMachine.advanceTimeAndBlock(15 * 86400);
             await pandaiEarn.requestWithdraw(usdtWithdraw, { from: bob });
 
-            // advance for 30 days (reward: 100 USDT over 30 days: $1)
+            // advance for 30 days (reward: 1000 USDT over 30 days: $10)
             await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             await pandaiEarn.withdraw({ from: bob });
@@ -508,10 +508,10 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("request withdraw keeps claim reward", async function () {
-            let usdtDeposit = toBN(200).mul(toBN(10 ** usdtDecimals));
-            let usdtWithdraw = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(3).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.3e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtDeposit = toBN(2000).mul(toBN(10 ** usdtDecimals));
+            let usdtWithdraw = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(30).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(1.8e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -542,7 +542,7 @@ contract("pandaiV1_1", function (accounts) {
     describe("Referral", () => {
 
         it("address cannot reffer itself", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
             await truffleAssert.reverts(pandaiEarn.depositWithReferral(usdtDeposit, bob, { from: bob }));
 
@@ -583,8 +583,8 @@ contract("pandaiV1_1", function (accounts) {
 
         it("repeated claim works the same", async function () {
             let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(2).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.2e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtReward = toBN(5).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.25e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -614,8 +614,8 @@ contract("pandaiV1_1", function (accounts) {
 
         it("additional deposits increase referral deposit", async function () {
             let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(6).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.6e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtReward = toBN(15).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.75e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -642,8 +642,8 @@ contract("pandaiV1_1", function (accounts) {
 
         it("withdraw request decreases referral deposit", async function () {
             let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(6).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.6e6).mul(toBN(10 ** pandaiDecimals));
+            let usdtReward = toBN(15).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(0.75e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -673,79 +673,9 @@ contract("pandaiV1_1", function (accounts) {
     describe("Tier1 Params", () => {
 
         it("claim after 30 days and withdraw", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(1).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(0.1e6).mul(toBN(10 ** pandaiDecimals));
-
-            // approvals
-            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
-            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
-
-            // deposit
-            await pandaiEarn.deposit(usdtDeposit, { from: bob });
-            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
-
-            // advance for 30 days
-            await timeMachine.advanceTimeAndBlock(30 * 86400);
-
-            // claim
-            await pandaiEarn.claim({ from: bob });
-            assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
-            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
-
-            // requesting withdraw
-            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
-
-            // advance for 14 days
-            await timeMachine.advanceTimeAndBlock(14 * 86400);
-
-            // withdraw
-            await pandaiEarn.withdraw({ from: bob });
-            assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
-            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
-
-            await timeMachine.revertToSnapshot(snapshotId);
-        });
-
-        it("withdraw after 6 days comes with fee", async function () {
-            let usdtDeposit = toBN(100).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(40e6).mul(toBN(10 ** pandaiDecimals));
-
-            // approvals
-            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
-            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
-
-            // deposit
-            await pandaiEarn.deposit(usdtDeposit, { from: bob });
-            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
-
-            // advance for 6 days
-            await timeMachine.advanceTimeAndBlock(6 * 86400);
-
-            // requesting withdraw
-            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
-            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
-            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
-
-            // advance for 14 days
-            await timeMachine.advanceTimeAndBlock(14 * 86400);
-
-            // withdraw
-            await pandaiEarn.withdraw({ from: bob });
-            assert.isTrue(usdtInitAmount.eq(await usdt.balanceOf(bob)));
-            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
-
-            await timeMachine.revertToSnapshot(snapshotId);
-        });
-
-    });
-
-    describe("Tier2 Params", () => {
-
-        it("claim after 30 days and withdraw", async function () {
-            let usdtDeposit = toBN(800).mul(toBN(10 ** usdtDecimals));
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
             let usdtReward = toBN(10).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(10).mul(toBN(0.09e6)).mul(toBN(10 ** pandaiDecimals));
+            let pandaiBurn = toBN(0.6e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -766,8 +696,8 @@ contract("pandaiV1_1", function (accounts) {
             // requesting withdraw
             await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
 
-            // advance for 14 days
-            await timeMachine.advanceTimeAndBlock(14 * 86400);
+            // advance for 30 days
+            await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // withdraw
             await pandaiEarn.withdraw({ from: bob });
@@ -778,8 +708,8 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("withdraw after 29 days comes with fee", async function () {
-            let usdtDeposit = toBN(800).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(800).mul(toBN(0.35e6)).mul(toBN(10 ** pandaiDecimals));
+            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(250e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -810,12 +740,12 @@ contract("pandaiV1_1", function (accounts) {
 
     });
 
-    describe("Tier3 Params", () => {
+    describe("Tier2 Params", () => {
 
-        it("claim after 30 days, withdraw after 60 days", async function () {
-            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
-            let usdtReward = toBN(15).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(15).mul(toBN(0.08e6)).mul(toBN(10 ** pandaiDecimals));
+        it("claim after 60 days and withdraw", async function () {
+            let usdtDeposit = toBN(5000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(110).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(5.5e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -825,16 +755,13 @@ contract("pandaiV1_1", function (accounts) {
             await pandaiEarn.deposit(usdtDeposit, { from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
 
-            // advance for 30 days
-            await timeMachine.advanceTimeAndBlock(30 * 86400);
+            // advance for 60 days
+            await timeMachine.advanceTimeAndBlock(60 * 86400);
 
             // claim
             await pandaiEarn.claim({ from: bob });
             assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
             assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
-
-            // advance for additional 30 days
-            await timeMachine.advanceTimeAndBlock(30 * 86400);
 
             // requesting withdraw
             await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
@@ -851,8 +778,8 @@ contract("pandaiV1_1", function (accounts) {
         });
 
         it("withdraw after 59 days comes with fee", async function () {
-            let usdtDeposit = toBN(1000).mul(toBN(10 ** usdtDecimals));
-            let pandaiBurn = toBN(1000).mul(toBN(0.3e6)).mul(toBN(10 ** pandaiDecimals));
+            let usdtDeposit = toBN(5000).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(1000e6).mul(toBN(10 ** pandaiDecimals));
 
             // approvals
             await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
@@ -864,6 +791,76 @@ contract("pandaiV1_1", function (accounts) {
 
             // advance for 59 days
             await timeMachine.advanceTimeAndBlock(59 * 86400);
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+    });
+
+    describe("Tier3 Params", () => {
+
+        it("claim after 90 days and withdraw", async function () {
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
+            let usdtReward = toBN(360).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(14.4e6).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 90 days
+            await timeMachine.advanceTimeAndBlock(90 * 86400);
+
+            // claim
+            await pandaiEarn.claim({ from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            // requesting withdraw
+            await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });
+
+            // advance for 14 days
+            await timeMachine.advanceTimeAndBlock(14 * 86400);
+
+            // withdraw
+            await pandaiEarn.withdraw({ from: bob });
+            assert.isTrue(usdtInitAmount.add(usdtReward).eq(await usdt.balanceOf(bob)));
+            assert.isTrue(pandaiInitAmount.sub(pandaiBurn).eq(await pandai.balanceOf(bob)));
+
+            await timeMachine.revertToSnapshot(snapshotId);
+        });
+
+        it("withdraw after 89 days comes with fee", async function () {
+            let usdtDeposit = toBN(10000).mul(toBN(10 ** usdtDecimals));
+            let pandaiBurn = toBN(1500e6).mul(toBN(10 ** pandaiDecimals));
+
+            // approvals
+            await usdt.approve(pandaiEarn.address, await usdt.balanceOf(bob), { from: bob });
+            await pandai.approve(pandaiEarn.address, await pandai.balanceOf(bob), { from: bob });
+
+            // deposit
+            await pandaiEarn.deposit(usdtDeposit, { from: bob });
+            assert.isTrue(usdtInitAmount.sub(usdtDeposit).eq(await usdt.balanceOf(bob)));
+
+            // advance for 89 days
+            await timeMachine.advanceTimeAndBlock(89 * 86400);
 
             // requesting withdraw
             await pandaiEarn.requestWithdraw(usdtDeposit, { from: bob });

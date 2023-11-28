@@ -21,9 +21,8 @@ contract PandAIEarnV1_1 is AccessControl, Pausable {
   uint private constant INTEREST_PERIOD = 30 * BASE_PERIOD;          // period for Tier.monthlyGainBps
   uint private constant DAILY_CLAIM_LIMIT = 1000;                    // daily claim limit of USDT for NotApproved users
   uint private constant MIRIAD = 10000;                              // helper for divisor
-  // TODO: set percents
-  uint private constant REFERRAL_MONTHLY_GAIN_BPS = 20;              // 0.2% reward for referrals
-  uint private constant REFERRAL_CLAIM_FEE_BPS = 1000;               // 10% referral claim fee
+  uint private constant REFERRAL_MONTHLY_GAIN_BPS = 50;              // 0.5% reward for referrals
+  uint private constant REFERRAL_CLAIM_FEE_BPS = 500;                // 5% referral claim fee
 
   uint8 private constant MAX_TIER = 3;
   
@@ -100,10 +99,9 @@ contract PandAIEarnV1_1 is AccessControl, Pausable {
     usdtToken = IERC20Extended(usdtTokenAddress);
     pandaiToken = IERC20Burnable(pandaiTokenAddress);
 
-    // TODO: set params
-    tierMap[1] = Tier(  100, false, 100, 1000,   7 * BASE_PERIOD, 4000);
-    tierMap[2] = Tier(  500, false, 125,  900,  30 * BASE_PERIOD, 3500);
-    tierMap[3] = Tier( 1000, false, 150,  800,  60 * BASE_PERIOD, 3000);
+    tierMap[1] = Tier( 1000, false, 100, 600, 30 * BASE_PERIOD, 2500);
+    tierMap[2] = Tier( 5000, false, 110, 500, 60 * BASE_PERIOD, 2000);
+    tierMap[3] = Tier(10000, false, 120, 400, 90 * BASE_PERIOD, 1500);
 
     _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
   }
