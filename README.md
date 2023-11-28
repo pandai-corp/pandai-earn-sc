@@ -12,7 +12,7 @@
 - Contract: `0xfe9238b38dCbf76c0143aa0c64fBfC5462A2b5Dc`
   - https://testnet.bscscan.com/token/0xfe9238b38dCbf76c0143aa0c64fBfC5462A2b5Dc
 
-## PandAIEarn
+## PandAIEarnV1
 - Contract: `0xC74721ae446DeD4d834C49dB83E6171E54fFD056`
   - https://testnet.bscscan.com/address/0xC74721ae446DeD4d834C49dB83E6171E54fFD056
   - Admins: 
@@ -25,6 +25,9 @@
     - https://testnet.bscscan.com/address/0x2141c922375b33bf8973a73b4238ad8e5c384288
     - initialized with 1e3 USDT, 1e9 PANDAI (1 USDT = 1e6 PANDAI)
   - deposited with 1e6 USDT
+
+## PandAIEarnV1_1
+- TODO
 
 
 # Mainnet
@@ -40,7 +43,7 @@
 - Contract: `0x550D7984b7AdFfF88815E5528e12E322DF6D3B9B`
   - https://bscscan.com/token/0x550d7984b7adfff88815e5528e12e322df6d3b9b
 
-## PandAIEarn
+## PandAIEarnV1
 - Contract: `0x0B68F81071e68577A99e97F21C1C6e147ce5E96C`
   - https://bscscan.com/address/0x0b68f81071e68577a99e97f21c1c6e147ce5e96c
   - Admins: 
@@ -49,3 +52,6 @@
     - no updaters yet
   - LP: `0x46E15b005fd2d02B864E5093978e05064e581430`
     - https://bscscan.com/address/0x46e15b005fd2d02b864e5093978e05064e581430
+
+## PandAIEarnV1_1
+- TODO
