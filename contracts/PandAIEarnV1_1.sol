@@ -233,7 +233,7 @@ import "./IERC20Burnable.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/security/Pausable.sol"; 
 
-contract PandAIEarnV1 is AccessControl, Pausable {
+contract PandAIEarnV1_1 is AccessControl, Pausable {
 
   IERC20Extended private immutable usdtToken;
   IERC20Burnable private immutable pandaiToken;
