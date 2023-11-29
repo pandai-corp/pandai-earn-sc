@@ -4,6 +4,7 @@
 - https://testnet.bscscan.com/
 - BASE_PERIOD = 1 minutes;
 
+Common settings for all contracts:
 - Admins: 
   - `0xBbB45ea97D08762bEd958ee4C53c0a56D06e51d2`
   - `0x6f11bd0279018668633C64f9421a95707F0cD9f2`
@@ -38,6 +39,7 @@
 - https://bscscan.com/
 - BASE_PERIOD = 1 days;
 
+Common settings for all contracts:
 - Admins: 
   - `0xEe9Aa828fF4cBF294063168E78BEB7BcF441fEa1`
 - Updaters:
